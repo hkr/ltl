@@ -57,6 +57,12 @@ private:
     std::shared_ptr<state> state_;
 };
     
+template <typename T>
+void swap(promise<T>& x, promise<T>& y)
+{
+    x.swap(y);
+}
+    
 } // namespace ltl
 
 #endif // LTL_PROMISE_HPP

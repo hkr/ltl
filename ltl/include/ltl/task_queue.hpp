@@ -1,11 +1,9 @@
 #ifndef LTL_TASK_QUEUE_HPP
 #define LTL_TASK_QUEUE_HPP
 
-#include <thread>
-#include <condition_variable>
-#include <mutex>
-#include <deque>
 #include <functional>
+#include <memory>
+#include <type_traits>
 
 #include "ltl/future.hpp"
 #include "ltl/promise.hpp"
@@ -57,11 +55,8 @@ public:
     }
     
 private:
-    mutable std::mutex mutex_;
-    bool join_;
-    std::condition_variable cv_;
-    std::deque<std::function<void()>> queue_;
-    std::thread thread_;
+    struct impl;
+    std::unique_ptr<impl> const impl_;
 };
 
 

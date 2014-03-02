@@ -70,6 +70,12 @@ public:
     }
 };
     
+template <typename T>
+void swap(future<T>& x, future<T>& y)
+{
+    x.swap(y);
+}
+    
 } // namespace ltl
 
 #endif // LTL_FUTURE_HPP
