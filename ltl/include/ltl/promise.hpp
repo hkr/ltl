@@ -9,10 +9,10 @@ template <typename T>
 class promise
 {
 public:
-    promise()
+    explicit promise(std::shared_ptr<detail::task_queue_impl> const& jq = std::shared_ptr<detail::task_queue_impl>())
     : state_()
     {
-        future<T> f {detail::promised()};
+        future<T> f {jq};
         state_ = f.get_state();
     }
     
@@ -32,14 +32,21 @@ public:
     
     promise& operator=(promise const& other) = delete;
     
-    void set_value(T const& value)
+    template <typename U>
+    void set_value(U const& value)
     {
         state_->set_value(value);
     }
     
-    void set_value(T&& value)
+    template <typename U>
+    void set_value(U&& value)
     {
-        state_->set_value(std::forward<T>(value));
+        state_->set_value(std::forward<U>(value));
+    }
+    
+    void set_value()
+    {
+        state_->set_value();
     }
     
     future<T> get_future()

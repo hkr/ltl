@@ -1,42 +1,78 @@
 #include "ltl/task_queue.hpp"
 
+#include "ltlcontext/ltlcontext.hpp"
+
 #include <stdio.h>
 #include <string>
 
+#include <unistd.h>
+
 std::mutex m;
+bool finished = false;
 std::condition_variable cv;
 
-namespace {
-    std::string get_str1()
-    {
-        return "dsfsdf";
-    }
-    
-    void print(std::string const& str)
-    {
-        printf("%s\n", str.c_str());
+ltl::task_queue mainQueue;
+ltl::task_queue otherQueue;
 
-    }
+namespace {
+    
+    
+
+    
+std::string get_string()
+{
+    printf("get_string \n");
+    return std::string("get_string");
+}
+
+void print(std::string const& str)
+{
+    printf("print %s\n", str.c_str());
     
 }
+
+void new_main()
+{
+        printf("new_main 1\n");
+    for (int i = 0; i < 100000; ++i)
+
+    {
+        std::string const str = ltl::await <= ltl::async(otherQueue, get_string);
+         printf("new_main 2\n");
+        ltl::await <= ltl::async(otherQueue, [=](){
+            print(str);
+        });
+    }
+     printf("new_main 3\n");
+#if 1
+    ltl::await <= ltl::async(otherQueue, [&](){
+        std::unique_lock<std::mutex> lock(m);
+        finished = true;
+        cv.notify_one();
+    });
+#endif
+    printf("new_main 5\n");
+}
+    
+} // namespace
 
 int main(int argc, char** argv)
 {
     {
-        ltl::task_queue tq;
-            
-        tq.execute([]() { return get_str1(); })
-            .then(&print);
-        
-        tq.enqueue([](){ printf("task2\n"); });
-        tq.enqueue([&](){ cv.notify_one(); });
+        mainQueue.enqueue(&new_main);
         
         std::unique_lock<std::mutex> lock(m);
-        cv.wait(lock);
+        cv.wait(lock, [&](){ return finished; });
         
         printf("exiting...\n");
     }
     
     printf("...done\n");
+    
+    usleep(1000000);
+    
+    otherQueue.join();
+    mainQueue.join();
+    
 	return 0;
 }

@@ -6,6 +6,8 @@
 #include <memory>
 #include <deque>
 
+#include "ltl/detail/task_queue_impl.hpp"
+
 namespace ltl {
     
 namespace detail {
@@ -34,6 +36,17 @@ inline void assign_value(bool& holder, void*)
 {
     holder = true;
 }
+    
+template <typename ValueHolder>
+typename ValueHolder::pointer get_value(ValueHolder const& holder)
+{
+    return holder.get();
+}
+
+inline void* get_value(bool const& holder)
+{
+    return holder ? reinterpret_cast<void*>(1) : nullptr;
+}
 
 template <typename T>
 struct select_continuation
@@ -51,13 +64,20 @@ struct select_continuation<void>
 template <typename T>
 struct future_state
 {
-    mutable std::mutex mutex;
     typedef typename std::conditional<std::is_void<T>::value, bool, std::unique_ptr<T>>::type ValueHolder;
-    ValueHolder value;
     typedef std::deque<typename select_continuation<T>::type> continuations_container;
-    continuations_container continuations;
+    typedef std::shared_ptr<detail::task_queue_impl> await_queue_type;
     
-    future_state() : value() {}
+    mutable std::mutex mutex;
+    ValueHolder value;
+    continuations_container continuations;
+    await_queue_type await_queue;
+    
+    explicit future_state(await_queue_type const& tq = await_queue_type())
+    : value()
+    , await_queue(tq)
+    {
+    }
     
     template <class U>
     void set_value(U&& v)
@@ -84,12 +104,18 @@ struct future_state
             if (value)
                 return;
             
-            assign_value(value, 0);
+            assign_value(value, reinterpret_cast<void*>(1));
             cs.swap(continuations);
         }
         
         for(auto&& f : cs)
             invoke(f, 0);
+    }
+    
+    T* poll() const
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        return get_value(value);
     }
 };
 
