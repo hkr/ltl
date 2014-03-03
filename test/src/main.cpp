@@ -11,13 +11,11 @@ std::mutex m;
 bool finished = false;
 std::condition_variable cv;
 
-ltl::task_queue mainQueue;
-ltl::task_queue otherQueue;
+ltl::task_queue mainQueue("main");
+ltl::task_queue otherQueue("other");
 
 namespace {
     
-    
-
     
 std::string get_string()
 {
@@ -33,7 +31,7 @@ void print(std::string const& str)
 
 void new_main()
 {
-    for (int i = 0; i < 100000; ++i)
+    for (int i = 0; i < 1000; ++i)
 
     {
         std::string const str = ltl::await <= ltl::async(otherQueue, get_string);

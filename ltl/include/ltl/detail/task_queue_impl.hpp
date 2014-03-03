@@ -11,7 +11,7 @@ namespace detail {
 class task_queue_impl : public std::enable_shared_from_this<detail::task_queue_impl>
 {
 public:
-    task_queue_impl();
+    explicit task_queue_impl(char const* name = nullptr);
     ~task_queue_impl();
     task_queue_impl(task_queue_impl const&) =delete;
     task_queue_impl& operator=(task_queue_impl const&) =delete;

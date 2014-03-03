@@ -15,16 +15,14 @@
 
 namespace ltl {
 namespace detail {
-
-    int counter = 0;
     
 using namespace std::placeholders;
     
 struct task_queue_impl::impl
 {
-    int instance;
-    explicit impl(task_queue_impl* task_queue)
+    explicit impl(task_queue_impl* task_queue, char const* name)
     : main_context_(create_main_context(), &destroy_main_context)
+    , name_(name ? name : "unnamed")
     , mutex_()
     , join_(false)
     , cv_()
@@ -68,11 +66,11 @@ struct task_queue_impl::impl
             }
         }
         
-        printf("leaving thread loop %d\n", instance);
+        printf("leaving thread loop %s\n", name_);
     })
     , task_queue_(task_queue)
     {
-        instance = ++counter;
+       
     }
 
     void run_in_new_context(std::function<void()>&& func)
@@ -98,7 +96,6 @@ struct task_queue_impl::impl
     
     ~impl()
     {
-         printf("~impl\n");
         join();
     }
     
@@ -142,6 +139,7 @@ struct task_queue_impl::impl
     typedef std::pair<task, scheduling_policy> work_item;
     
     std::unique_ptr<context, void(*)(context*)> main_context_;
+    char const* const name_;
     mutable std::mutex mutex_;
     bool join_;
     std::condition_variable cv_;
@@ -151,8 +149,8 @@ struct task_queue_impl::impl
     task_queue_impl* const task_queue_;
 };
     
-task_queue_impl::task_queue_impl()
-: impl_(new impl(this))
+task_queue_impl::task_queue_impl(char const* name)
+: impl_(new impl(this, name))
 {
     
 }

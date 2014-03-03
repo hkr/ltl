@@ -15,7 +15,10 @@ namespace ltl {
 class task_queue
 {
 public:
-    task_queue() : impl_(std::make_shared<detail::task_queue_impl>()) {}
+    explicit task_queue(char const* name = nullptr)
+    : impl_(std::make_shared<detail::task_queue_impl>(name))
+    {
+    }
     
     task_queue(task_queue const&) =delete;
     task_queue& operator=(task_queue const&) =delete;

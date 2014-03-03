@@ -9,7 +9,7 @@ namespace ltl {
 task_context::task_context(context* main,
                            std::function<void(std::shared_ptr<task_context> const&)> finished,
                            detail::task_queue_impl* tq)
-: stack_(64 * 1024)
+: stack_(16 * 1024)
 , func_()
 , keep_alive_()
 , main_(main)
