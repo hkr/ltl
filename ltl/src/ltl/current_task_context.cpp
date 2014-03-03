@@ -55,8 +55,6 @@ void ltl::current_task_context::set(ltl::task_context* ctx)
 
 #endif 
 
-
-
 #else
 
 static thread_local ltl::task_context* value = nullptr;

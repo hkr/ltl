@@ -89,6 +89,12 @@ void swap(future<T>& x, future<T>& y)
     
 struct await_value
 {
+    template <class Future>
+    typename Future::value_type operator()(Future&& f) const
+    {
+        return apply(f);
+    }
+    
     template <class T>
     T apply(future<T>& f) const
     {
@@ -132,7 +138,7 @@ struct await_value
 extern const await_value await;
     
 template <typename T>
-T operator <=(await_value const& a, future<T> f)
+T operator|=(await_value const& a, future<T> f)
 {
     return a.apply(f);
 }

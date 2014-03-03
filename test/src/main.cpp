@@ -28,23 +28,23 @@ void print(std::string const& str)
     printf("print %s\n", str.c_str());
     
 }
+    
+#define LTL_ASYNC(tq) |= tq <<= [&]()
 
 void new_main()
 {
     for (int i = 0; i < 1000; ++i)
 
     {
-        std::string const str = ltl::await <= ltl::async(otherQueue, get_string);
-        ltl::await <= ltl::async(otherQueue, [=](){
-            print(str);
-        });
+        std::string const str = ltl::await(otherQueue.execute(get_string));
+        ltl::await (otherQueue.execute([=](){ print(str); }));
     }
 
-    ltl::await <= ltl::async(otherQueue, [&](){
+    ltl::await(otherQueue.execute([&](){
         std::unique_lock<std::mutex> lock(m);
         finished = true;
         cv.notify_one();
-    });
+    }));
 }
     
 } // namespace

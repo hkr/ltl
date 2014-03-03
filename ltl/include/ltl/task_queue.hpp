@@ -94,6 +94,12 @@ future<typename std::result_of<Function(Args const&...)>::type> async(task_queue
     });
 }
     
+template <typename Function>
+future<typename std::result_of<Function()>::type> operator <<= (task_queue& tq, Function&& f)
+{
+    return async(tq, std::forward<Function>(f));
+}
+    
 } // namespace ltl
 
 #endif // LTL_TASK_QUEUE_HPP
