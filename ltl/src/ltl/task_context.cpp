@@ -1,5 +1,6 @@
 #include "ltl/detail/task_context.hpp"
 #include "ltl/detail/current_task_context.hpp"
+#include "ltl/detail/log.hpp"
 
 #include <cstdlib>
 #include <assert.h>
@@ -17,7 +18,7 @@ task_context::task_context(context* main,
 , finished_(std::move(finished))
 , task_queue_(tq)
 {
-//    printf("created task_context %016X\n", this);
+    LTL_LOG("task_context::task_context %p\n", this);
 }
 
 std::shared_ptr<task_context> task_context::create(context* main,
@@ -31,7 +32,7 @@ void task_context::yield()
 {
     assert(current_task_context::get());
     current_task_context::set(nullptr);
-//    printf("task_context::yield %016X\n", this);
+    LTL_LOG("task_context::yield %p\n", this);
     jump(own_, main_);
 }
 
@@ -40,7 +41,7 @@ void task_context::resume()
     assert(!current_task_context::get());
     current_task_context::set(this);
 
-//    printf("task_context::resume %016X\n", this);
+    LTL_LOG("task_context::resume %p\n", this);
     jump(main_, own_);
 }
 
@@ -50,7 +51,7 @@ void task_context::trampoline(context_data_t instance)
     
     self->func_();
     self->finished_(self->keep_alive_);
-//    printf("task_context::finished_ %016X\n", self);
+    LTL_LOG("task_context::trampoline finished %p\n", self);
     self->keep_alive_.reset();
     
     self->yield();
@@ -60,7 +61,7 @@ void task_context::trampoline(context_data_t instance)
 
 void task_context::reset(std::function<void()>&& f)
 {
-//    printf("task_context::activate %016X\n", this);
+    LTL_LOG("task_context::reset %p\n", this);
     func_ = std::move(f);
     own_ = create_context(&stack_.front(), stack_.size() * sizeof(void*), &trampoline, reinterpret_cast<context_data_t>(this));
     keep_alive_ = shared_from_this();

@@ -3,6 +3,7 @@
 #include "ltlcontext/ltlcontext.hpp"
 #include "ltl/detail/task_context.hpp"
 #include "ltl/detail/current_task_context.hpp"
+#include "ltl/detail/log.hpp"
 
 #include <condition_variable>
 #include <thread>
@@ -38,9 +39,9 @@ struct task_queue_impl::impl
                 
                 if (!work_to_do())
                 {
-                    //printf("waiting... %d\n", instance);
+                    LTL_LOG("task_queue_impl waiting... %s\n", name_);
                     cv_.wait(lock, work_to_do);
-                    //printf("waited %d\n", instance);
+                    LTL_LOG("task_queue_impl wakeup %s\n", name_);
                 }
                 
                 if (join_)
@@ -54,19 +55,17 @@ struct task_queue_impl::impl
             {
                 if (wi.second == Resumable)
                 {
-                    //printf("run_in_new_context %d\n", instance);
                     run_in_new_context(std::move(wi.first));
-                    //printf("done with run_in_new_context %d\n", instance);
                 }
                 else
                 {
-                    //printf("wi.first() %d\n", instance);
+                    LTL_LOG("task_queue_impl run first %s\n", name_);
                     wi.first();
                 }
             }
         }
         
-        printf("leaving thread loop %s\n", name_);
+        LTL_LOG("task_queue_impl leaving thread loop %s\n", name_);
     })
     , task_queue_(task_queue)
     {
@@ -88,10 +87,12 @@ struct task_queue_impl::impl
             ctx = free_task_contexts_.back();
             free_task_contexts_.pop_back();
         }
-        //printf("run_in_new_context %d %016X\n", instance, ctx.get());
+        LTL_LOG("task_queue_impl::run_in_new_context %s %p\n", name_, ctx.get());
 
         ctx->reset(std::move(func));
         ctx->resume();
+        
+        LTL_LOG("task_queue_impl::run_in_new_context complete %s %p\n", name_, ctx.get());
     }
     
     ~impl()
