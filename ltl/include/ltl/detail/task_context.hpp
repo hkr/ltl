@@ -27,19 +27,15 @@ public:
     task_context(task_context const&) =delete;
     task_context& operator=(task_context const&) =delete;
     
-    void activate(std::function<void()>&& f);
+    void reset(std::function<void()>&& f);
     
     void yield();
     void resume();
     
-    detail::task_queue_impl* get_task_queue()
-    {
-        return task_queue_;
-    }
-    
+    detail::task_queue_impl* get_task_queue();
+
 private:
     static void trampoline(context_data_t instance);
-
     
 private:
     std::vector<void*> stack_;

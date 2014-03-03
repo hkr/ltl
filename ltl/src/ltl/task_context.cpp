@@ -58,7 +58,7 @@ void task_context::trampoline(context_data_t instance)
     std::abort();
 }
 
-void task_context::activate(std::function<void()>&& f)
+void task_context::reset(std::function<void()>&& f)
 {
 //    printf("task_context::activate %016X\n", this);
     func_ = std::move(f);
@@ -66,5 +66,9 @@ void task_context::activate(std::function<void()>&& f)
     keep_alive_ = shared_from_this();
 }
 
+detail::task_queue_impl* task_context::get_task_queue()
+{
+    return task_queue_;
+}
     
 } // nameaspace ltl

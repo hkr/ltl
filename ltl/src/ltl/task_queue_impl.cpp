@@ -92,7 +92,7 @@ struct task_queue_impl::impl
         }
         //printf("run_in_new_context %d %016X\n", instance, ctx.get());
 
-        ctx->activate(std::move(func));
+        ctx->reset(std::move(func));
         ctx->resume();
     }
     
