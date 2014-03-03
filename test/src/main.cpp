@@ -33,25 +33,20 @@ void print(std::string const& str)
 
 void new_main()
 {
-        printf("new_main 1\n");
     for (int i = 0; i < 100000; ++i)
 
     {
         std::string const str = ltl::await <= ltl::async(otherQueue, get_string);
-         printf("new_main 2\n");
         ltl::await <= ltl::async(otherQueue, [=](){
             print(str);
         });
     }
-     printf("new_main 3\n");
-#if 1
+
     ltl::await <= ltl::async(otherQueue, [&](){
         std::unique_lock<std::mutex> lock(m);
         finished = true;
         cv.notify_one();
     });
-#endif
-    printf("new_main 5\n");
 }
     
 } // namespace
@@ -63,11 +58,7 @@ int main(int argc, char** argv)
         
         std::unique_lock<std::mutex> lock(m);
         cv.wait(lock, [&](){ return finished; });
-        
-        printf("exiting...\n");
     }
-    
-    printf("...done\n");
     
     usleep(1000000);
     

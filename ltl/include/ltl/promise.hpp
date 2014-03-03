@@ -9,7 +9,8 @@ template <typename T>
 class promise
 {
 public:
-    explicit promise(std::shared_ptr<detail::task_queue_impl> const& jq = std::shared_ptr<detail::task_queue_impl>())
+    explicit promise(std::shared_ptr<detail::task_queue_impl> const& jq
+                        = std::shared_ptr<detail::task_queue_impl>())
     : state_()
     {
         future<T> f {jq};

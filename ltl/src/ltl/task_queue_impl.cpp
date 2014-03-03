@@ -40,9 +40,9 @@ struct task_queue_impl::impl
                 
                 if (!work_to_do())
                 {
-                    printf("waiting... %d\n", instance);
+                    //printf("waiting... %d\n", instance);
                     cv_.wait(lock, work_to_do);
-                    printf("waited %d\n", instance);
+                    //printf("waited %d\n", instance);
                 }
                 
                 if (join_)
@@ -56,13 +56,13 @@ struct task_queue_impl::impl
             {
                 if (wi.second == Resumable)
                 {
-                    printf("run_in_new_context %d\n", instance);
+                    //printf("run_in_new_context %d\n", instance);
                     run_in_new_context(std::move(wi.first));
-                    printf("done with run_in_new_context %d\n", instance);
+                    //printf("done with run_in_new_context %d\n", instance);
                 }
                 else
                 {
-                    printf("wi.first() %d\n", instance);
+                    //printf("wi.first() %d\n", instance);
                     wi.first();
                 }
             }
@@ -90,7 +90,7 @@ struct task_queue_impl::impl
             ctx = free_task_contexts_.back();
             free_task_contexts_.pop_back();
         }
-        printf("run_in_new_context %d %016X\n", instance, ctx.get());
+        //printf("run_in_new_context %d %016X\n", instance, ctx.get());
 
         ctx->activate(std::move(func));
         ctx->resume();
