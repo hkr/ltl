@@ -5,6 +5,7 @@
 #include <functional>
 
 #include "ltl/promise.hpp"
+#include "ltl/detail/task_context.hpp"
 
 namespace ltl {
 namespace detail {
@@ -15,9 +16,11 @@ template <typename R>
 struct wrapped_function
 {
     template <typename Function>
-    explicit wrapped_function(std::shared_ptr<detail::task_queue_impl> const& await_queue, Function&& task)
+    explicit wrapped_function(task_context* ctx, Function&& task)
     : task_(std::move(task))
-    , promise_(std::make_shared<promise<R>>(await_queue))
+    , promise_(ctx
+               ? std::make_shared<promise<R>>(ctx->get_task_queue()->shared_from_this())
+               : std::make_shared<promise<R>>())
     {
     }
     

@@ -56,7 +56,7 @@ template <typename Function>
 inline future<typename std::result_of<Function()>::type> task_queue::execute(Function&& task)
 {
     typedef typename std::result_of<Function()>::type result_type;
-    detail::wrapped_function<result_type> wf(current_task_context::get()->get_task_queue()->shared_from_this(),
+    detail::wrapped_function<result_type> wf(current_task_context::get(),
                                              std::forward<Function>(task));
     impl_->enqueue_resumable(wf);
     return wf.promise_->get_future();
