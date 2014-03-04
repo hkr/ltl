@@ -6,12 +6,12 @@
 #include <memory>
 
 #include "ltl/detail/future_state.hpp"
-#include "ltl/detail/future_then_base.hpp"
+#include "ltl/detail/result_of.hpp"
 
 namespace ltl {
     
 template <typename T>
-class future : public detail::future_then_base<future<T>, T>
+class future
 {
 public:
     typedef detail::future_state<T> state;
@@ -58,7 +58,12 @@ public:
         return state_ != nullptr;
     }
     
-    using detail::future_then_base<future<T>, T>::then;
+    template <typename Function>
+    future<typename result_of<Function, T>::type> then(Function&& func)
+    {
+        typedef future<typename result_of<Function, T>::type> result_future;
+        return valid() ? state_->template then<result_future>(std::forward<Function>(func)) : result_future();
+    }
     
     void swap(future& other)
     {
