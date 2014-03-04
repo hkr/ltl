@@ -1,7 +1,10 @@
 #ifndef LTL_PROMISE_HPP
 #define LTL_PROMISE_HPP
 
+#include <memory>
+
 #include "ltl/future.hpp"
+
 
 namespace ltl {
     
