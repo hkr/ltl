@@ -7,6 +7,7 @@
 #include <deque>
 
 #include "ltl/detail/task_queue_impl.hpp"
+#include "ltl/detail/block.hpp"
 
 namespace ltl {
     
@@ -72,6 +73,7 @@ struct future_state
     ValueHolder value;
     continuations_container continuations;
     await_queue_type await_queue;
+    std::unique_ptr<detail::block> block;
     
     explicit future_state(await_queue_type const& tq = await_queue_type())
     : value()
@@ -110,6 +112,23 @@ struct future_state
         
         for(auto&& f : cs)
             invoke(f, 0);
+    }
+
+    void wait()
+    {
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            if (auto x = get_value(value))
+                return;
+            
+            if (!block)
+            {
+                block.reset(new detail::block());
+                continuations.push_back(std::bind(&detail::block::signal, block.get()));
+            }
+        }
+        
+        block->wait();
     }
     
     T* poll() const

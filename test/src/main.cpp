@@ -65,6 +65,9 @@ int main(int argc, char** argv)
         cv.wait(lock, [&](){ return finished == 3; });
     }
     
+    ltl::future<void> f = mainQueue.execute([](){});
+    f.get();
+    
     assert(loopCount == 3 * loopEnd);
     usleep(1000000);
     

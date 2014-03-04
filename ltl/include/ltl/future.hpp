@@ -55,7 +55,7 @@ public:
     
     bool valid() const
     {
-        return state_;
+        return state_ != nullptr;
     }
     
     using detail::future_then_base<future<T>, T>::then;
@@ -68,6 +68,20 @@ public:
     T* poll()
     {
         return state_ ? state_->poll() : nullptr;
+    }
+    
+    void wait()
+    {
+        if (!valid())
+            return;
+        
+        return state_->wait();
+    }
+    
+    T get()
+    {
+        wait();
+        return *poll();
     }
     
 private:
