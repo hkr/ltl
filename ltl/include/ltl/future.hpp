@@ -109,7 +109,20 @@ void swap(future<T>& x, future<T>& y)
     x.swap(y);
 }
  
-    
+template <typename T>
+future<T> make_future(T&& value)
+{
+    future<T> f(detail::use_private_interface, detail::promised());
+    f.get_state(detail::use_private_interface)->set_value(std::forward<T>(value));
+    return std::move(f);
+}
+
+inline future<void> make_future()
+{
+    future<void> f(detail::use_private_interface, detail::promised());
+    f.get_state(detail::use_private_interface)->set_value();
+    return std::move(f);
+}
     
 namespace detail {
     
