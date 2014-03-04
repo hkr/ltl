@@ -24,7 +24,6 @@ public:
     {
     }
     
-    
     future(future&& other)
     : state_(std::move(other.state_))
     {
@@ -88,17 +87,17 @@ public:
         return state_;
     }
     
-    explicit future(detail::private_interface, detail::promised)
+    future(detail::private_interface, detail::promised)
     : state_(std::make_shared<state>())
     {
     }
     
-    explicit future(detail::private_interface, std::shared_ptr<detail::task_queue_impl> const& tq)
+    future(detail::private_interface, std::shared_ptr<detail::task_queue_impl> const& tq)
     : state_(std::make_shared<state>(tq))
     {
     }
     
-    explicit future(detail::private_interface, std::shared_ptr<state> const& s)
+    future(detail::private_interface, std::shared_ptr<state> const& s)
     : state_(s)
     {
     }
