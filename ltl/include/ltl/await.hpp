@@ -19,6 +19,9 @@ struct await_value
     template <class T>
     T apply(future<T>& f) const
     {
+        if (f.ready())
+            return f.get();
+        
         T value;
         task_context* ctx = current_task_context::get();
         
@@ -40,6 +43,9 @@ struct await_value
     
     void apply(future<void>& f) const
     {
+        if (f.ready())
+            return;
+        
         task_context* ctx = current_task_context::get();
         
         auto&& resumeTask = [&]() {
