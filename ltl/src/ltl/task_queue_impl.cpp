@@ -44,8 +44,11 @@ struct task_queue_impl::impl
                     LTL_LOG("task_queue_impl wakeup %s\n", name_);
                 }
                 
-                if (join_)
+                if (join_ && in_progress_count_ == 0)
                     break;
+                
+                if (queue_.empty())
+                    continue;
                 
                 wi.swap(queue_.front());
                 queue_.pop_front();
@@ -68,6 +71,7 @@ struct task_queue_impl::impl
         LTL_LOG("task_queue_impl leaving thread loop %s\n", name_);
     })
     , task_queue_(task_queue)
+    , in_progress_count_(0)
     {
        
     }
@@ -90,6 +94,7 @@ struct task_queue_impl::impl
         LTL_LOG("task_queue_impl::run_in_new_context %s %p\n", name_, ctx.get());
 
         ctx->reset(std::move(func));
+        ++in_progress_count_;
         ctx->resume();
         
         LTL_LOG("task_queue_impl::run_in_new_context complete %s %p\n", name_, ctx.get());
@@ -132,7 +137,15 @@ struct task_queue_impl::impl
     
     void task_complete(std::shared_ptr<task_context> const& ctx)
     {
+        --in_progress_count_;
         free_task_contexts_.push_back(ctx);
+        
+        if (in_progress_count_ == 0)
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (join_)
+                cv_.notify_one();
+        }
     }
     
     enum scheduling_policy { Resumable, First };
@@ -148,6 +161,7 @@ struct task_queue_impl::impl
     std::thread thread_;
     std::vector<std::shared_ptr<task_context>> free_task_contexts_;
     task_queue_impl* const task_queue_;
+    int in_progress_count_;
 };
     
 task_queue_impl::task_queue_impl(char const* name)
