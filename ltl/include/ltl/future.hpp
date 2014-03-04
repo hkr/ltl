@@ -8,6 +8,7 @@
 #include "ltl/detail/future_state.hpp"
 #include "ltl/detail/result_of.hpp"
 #include "ltl/detail/private.hpp"
+#include "ltl/traits.hpp"
 
 namespace ltl {
     
@@ -76,6 +77,8 @@ public:
         return *state_->poll();
     }
     
+    typename std::conditional<is_future<T>::value, T, future<T>>::type unwrap();
+    
 private:
     std::shared_ptr<state> state_;
     
@@ -101,52 +104,65 @@ public:
     }
 };
   
-    
-template <typename T>
-future<T> unwrap(future<T>&& other)
-{
-    return std::move(other);
-}
-
-
-template <typename T>
-future<T> unwrap(future<future<T>>&& other)
-{
-    if (!other.valid())
-        return future<T>();
-    
-    future<T> f(detail::use_private_interface, other.get_state(detail::use_private_interface)->await_queue);
-    auto s = f.get_state(detail::use_private_interface);
-    
-    other.get_state(detail::use_private_interface)->continue_with([=](future<T> const& x){
-        x.get_state(detail::use_private_interface)->continue_with([=](T const& x) {
-            s->set_value(x);
-        });
-    });
-    return std::move(f);
-}
-
-inline future<void> unwrap(future<future<void>>&& other)
-{
-    if (!other.valid())
-        return future<void>();
-    
-    future<void> f(detail::use_private_interface, other.get_state(detail::use_private_interface)->await_queue);
-    auto s = f.get_state(detail::use_private_interface);
-    other.get_state(detail::use_private_interface)->continue_with([=](future<void> const& x){
-        x.get_state(detail::use_private_interface)->continue_with([=]() {
-            s->set_value();
-        });
-    });
-    return std::move(f);
-}
-    
 template <typename T>
 void swap(future<T>& x, future<T>& y)
 {
     x.swap(y);
 }
+ 
     
+    
+namespace detail {
+    
+struct unwrap
+{
+    template <typename T>
+    future<T> operator()(future<T>&& other) const
+    {
+        return std::move(other);
+    }
+    
+    
+    template <typename T>
+    future<T> operator()(future<future<T>>&& other) const
+    {
+        if (!other.valid())
+            return future<T>();
+        
+        future<T> f(detail::use_private_interface, other.get_state(detail::use_private_interface)->await_queue);
+        auto s = f.get_state(detail::use_private_interface);
+        
+        other.get_state(detail::use_private_interface)->continue_with([=](future<T> const& x){
+            x.get_state(detail::use_private_interface)->continue_with([=](T const& x) {
+                s->set_value(x);
+            });
+        });
+        return std::move(f);
+    }
+    
+    inline future<void> operator()(future<future<void>>&& other) const
+    {
+        if (!other.valid())
+            return future<void>();
+        
+        future<void> f(detail::use_private_interface, other.get_state(detail::use_private_interface)->await_queue);
+        auto s = f.get_state(detail::use_private_interface);
+        other.get_state(detail::use_private_interface)->continue_with([=](future<void> const& x){
+            x.get_state(detail::use_private_interface)->continue_with([=]() {
+                s->set_value();
+            });
+        });
+        return std::move(f);
+    }
+};
+    
+} // namespace detail
+    
+template <typename T>
+inline typename std::conditional<is_future<T>::value, T, future<T>>::type future<T>::unwrap()
+{
+    return detail::unwrap()(future<T>(detail::use_private_interface, state_));
+}
     
 } // namespace ltl
 
