@@ -16,8 +16,8 @@ public:
                         = std::shared_ptr<detail::task_queue_impl>())
     : state_()
     {
-        future<T> f {jq};
-        state_ = f.get_state();
+        future<T> f {detail::use_private_interface, jq};
+        state_ = f.get_state(detail::use_private_interface);
     }
     
     promise(promise&& other)
@@ -55,7 +55,7 @@ public:
     
     future<T> get_future()
     {
-        return future<T>(state_);
+        return future<T>(detail::use_private_interface, state_);
     }
     
     void swap(promise& other)

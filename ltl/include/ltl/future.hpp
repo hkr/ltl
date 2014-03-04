@@ -7,6 +7,7 @@
 
 #include "ltl/detail/future_state.hpp"
 #include "ltl/detail/result_of.hpp"
+#include "ltl/detail/private.hpp"
 
 namespace ltl {
     
@@ -22,20 +23,6 @@ public:
     {
     }
     
-    explicit future(detail::promised)
-    : state_(std::make_shared<state>())
-    {
-    }
-    
-    explicit future(std::shared_ptr<detail::task_queue_impl> const& tq)
-    : state_(std::make_shared<state>(tq))
-    {
-    }
-    
-    explicit future(std::shared_ptr<state> const& s)
-    : state_(s)
-    {
-    }
     
     future(future&& other)
     : state_(std::move(other.state_))
@@ -93,10 +80,24 @@ private:
     std::shared_ptr<state> state_;
     
 public:
-    // private interface
-    std::shared_ptr<state> const& get_state() const
+    std::shared_ptr<state> const& get_state(detail::private_interface) const
     {
         return state_;
+    }
+    
+    explicit future(detail::private_interface, detail::promised)
+    : state_(std::make_shared<state>())
+    {
+    }
+    
+    explicit future(detail::private_interface, std::shared_ptr<detail::task_queue_impl> const& tq)
+    : state_(std::make_shared<state>(tq))
+    {
+    }
+    
+    explicit future(detail::private_interface, std::shared_ptr<state> const& s)
+    : state_(s)
+    {
     }
 };
   
@@ -114,11 +115,11 @@ future<T> unwrap(future<future<T>>&& other)
     if (!other.valid())
         return future<T>();
     
-    future<T> f(other.get_state()->await_queue);
-    auto s = f.get_state();
+    future<T> f(detail::use_private_interface, other.get_state(detail::use_private_interface)->await_queue);
+    auto s = f.get_state(detail::use_private_interface);
     
-    other.get_state()->continue_with([=](future<T> const& x){
-        x.get_state()->continue_with([=](T const& x) {
+    other.get_state(detail::use_private_interface)->continue_with([=](future<T> const& x){
+        x.get_state(detail::use_private_interface)->continue_with([=](T const& x) {
             s->set_value(x);
         });
     });
@@ -130,10 +131,10 @@ inline future<void> unwrap(future<future<void>>&& other)
     if (!other.valid())
         return future<void>();
     
-    future<void> f(other.get_state()->await_queue);
-    auto s = f.get_state();
-    other.get_state()->continue_with([=](future<void> const& x){
-        x.get_state()->continue_with([=]() {
+    future<void> f(detail::use_private_interface, other.get_state(detail::use_private_interface)->await_queue);
+    auto s = f.get_state(detail::use_private_interface);
+    other.get_state(detail::use_private_interface)->continue_with([=](future<void> const& x){
+        x.get_state(detail::use_private_interface)->continue_with([=]() {
             s->set_value();
         });
     });

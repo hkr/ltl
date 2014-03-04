@@ -8,6 +8,7 @@
 
 #include "ltl/detail/task_queue_impl.hpp"
 #include "ltl/detail/block.hpp"
+#include "ltl/detail/private.hpp"
 
 namespace ltl {
     
@@ -209,8 +210,8 @@ struct future_state_base
     template <typename Future, typename Function>
     Future then(Function&& func)
     {
-        Future fr { detail::promised() };
-        auto&& rs = fr.get_state();
+        Future fr { detail::use_private_interface, detail::promised() };
+        auto&& rs = fr.get_state(detail::use_private_interface);
         
         {
             std::lock_guard<std::mutex> lock(mutex);
