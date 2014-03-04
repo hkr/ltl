@@ -70,9 +70,9 @@ public:
         state_swap(other.state_);
     }
     
-    T* poll()
+    bool ready()
     {
-        return state_ ? state_->poll() : nullptr;
+        return state_ ? state_->poll() != nullptr : false;
     }
     
     void wait()
@@ -86,7 +86,7 @@ public:
     T get()
     {
         wait();
-        return *poll();
+        return *state_->poll();
     }
     
 private:
