@@ -5,23 +5,29 @@
 
 #include <stdio.h>
 #include <string>
+#include <sstream>
 
 #include <unistd.h>
+#include "assert.h"
 
 std::mutex m;
 int finished = 0;
 std::condition_variable cv;
 
 ltl::task_queue mainQueue("main");
-ltl::task_queue otherQueue("other");
+ltl::task_queue otherQueues[2] = { ltl::task_queue("other1") , ltl::task_queue("other2") };
 
 namespace {
+   
+int const loopEnd = 1000;
+int loopCount = 0;
     
-    
-std::string get_string()
+std::string get_string(int idx, int cnt)
 {
-    printf("get_string \n");
-    return std::string("get_string");
+    std::stringstream ss;
+    ss << "get_string: " << idx << " / " << cnt;
+    printf("%s\n", ss.str().c_str());
+    return ss.str();
 }
 
 void print(std::string const& str)
@@ -29,17 +35,17 @@ void print(std::string const& str)
     printf("print %s\n", str.c_str());
     
 }
-
-void new_main()
+    
+void new_main(int idx)
 {
-    for (int i = 0; i < 1000; ++i)
-
+    for (int i = 0; i < loopEnd; ++i)
     {
-        std::string const str = ltl::await(otherQueue.execute(get_string));
-        ltl::await (otherQueue.execute([=](){ print(str); }));
+        int c = ++loopCount;
+        std::string const str = ltl::await |= otherQueues[i%2] <<= [=](){ return get_string(idx, c); };
+        ltl::await (otherQueues[(i + i%2) % 2].execute([=](){ print(str); }));
     }
 
-    ltl::await(otherQueue.execute([&](){
+    ltl::await(mainQueue.execute([&](){
         std::unique_lock<std::mutex> lock(m);
         ++finished;
         cv.notify_one();
@@ -51,17 +57,20 @@ void new_main()
 int main(int argc, char** argv)
 {
     {
-        mainQueue.enqueue(&new_main);
-        mainQueue.enqueue(&new_main);
-        mainQueue.enqueue(&new_main);
+        mainQueue.enqueue([](){ new_main(1); });
+        mainQueue.enqueue([](){ new_main(2); });
+        mainQueue.enqueue([](){ new_main(3); });
         
         std::unique_lock<std::mutex> lock(m);
         cv.wait(lock, [&](){ return finished == 3; });
     }
     
+    assert(loopCount == 3 * loopEnd);
     usleep(1000000);
     
-    otherQueue.join();
+    for (auto&& q : otherQueues)
+        q.join();
+
     mainQueue.join();
     
 	return 0;
