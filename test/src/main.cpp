@@ -76,5 +76,9 @@ int main(int argc, char** argv)
 
     mainQueue.join();
     
+    
+    ltl::future<ltl::future<int>> xff;
+    ltl::future<int> xf = ltl::unwrap(std::move(xff));
+    
 	return 0;
 }

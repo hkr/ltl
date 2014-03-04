@@ -99,6 +99,46 @@ public:
         return state_;
     }
 };
+  
+    
+template <typename T>
+future<T> unwrap(future<T>&& other)
+{
+    return std::move(other);
+}
+
+
+template <typename T>
+future<T> unwrap(future<future<T>>&& other)
+{
+    if (!other.valid())
+        return future<T>();
+    
+    future<T> f(other.get_state()->await_queue);
+    auto s = f.get_state();
+    
+    other.get_state()->continue_with([=](future<T> const& x){
+        x.get_state()->continue_with([=](T const& x) {
+            s->set_value(x);
+        });
+    });
+    return std::move(f);
+}
+
+inline future<void> unwrap(future<future<void>>&& other)
+{
+    if (!other.valid())
+        return future<void>();
+    
+    future<void> f(other.get_state()->await_queue);
+    auto s = f.get_state();
+    other.get_state()->continue_with([=](future<void> const& x){
+        x.get_state()->continue_with([=]() {
+            s->set_value();
+        });
+    });
+    return std::move(f);
+}
     
 template <typename T>
 void swap(future<T>& x, future<T>& y)
