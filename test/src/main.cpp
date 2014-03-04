@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 std::mutex m;
-bool finished = false;
+int finished = 0;
 std::condition_variable cv;
 
 ltl::task_queue mainQueue("main");
@@ -29,8 +29,6 @@ void print(std::string const& str)
     printf("print %s\n", str.c_str());
     
 }
-    
-#define LTL_ASYNC(tq) |= tq <<= [&]()
 
 void new_main()
 {
@@ -43,7 +41,7 @@ void new_main()
 
     ltl::await(otherQueue.execute([&](){
         std::unique_lock<std::mutex> lock(m);
-        finished = true;
+        ++finished;
         cv.notify_one();
     }));
 }
@@ -54,9 +52,11 @@ int main(int argc, char** argv)
 {
     {
         mainQueue.enqueue(&new_main);
+        mainQueue.enqueue(&new_main);
+        mainQueue.enqueue(&new_main);
         
         std::unique_lock<std::mutex> lock(m);
-        cv.wait(lock, [&](){ return finished; });
+        cv.wait(lock, [&](){ return finished == 3; });
     }
     
     usleep(1000000);
