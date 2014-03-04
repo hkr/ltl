@@ -24,6 +24,17 @@ public:
     task_queue(task_queue const&) =delete;
     task_queue& operator=(task_queue const&) =delete;
     
+    task_queue(task_queue&& other)
+    : impl_(std::move(other.impl_))
+    {
+    }
+    
+    task_queue& operator=(task_queue&& other)
+    {
+        impl_ = std::move(other.impl_);
+        return *this;
+    }
+    
     void join()
     {
         impl_->join();
@@ -38,7 +49,7 @@ public:
     future<typename std::result_of<Function()>::type> execute(Function&& task);
     
 private:
-    std::shared_ptr<detail::task_queue_impl> const impl_;
+    std::shared_ptr<detail::task_queue_impl> impl_;
 };
     
 template <typename Function>
