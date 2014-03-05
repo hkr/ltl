@@ -279,8 +279,8 @@ template <>
 struct future_state<void> : future_state_base<void>
 {
     typedef future_state_base<void> base_type;
-    typedef typename base_type::await_queue_type await_queue_type;
-    typedef typename base_type::continuations_container continuations_container;
+    typedef base_type::await_queue_type await_queue_type;
+    typedef base_type::continuations_container continuations_container;
     
     explicit future_state(await_queue_type const& tq = await_queue_type())
     : base_type(tq)
