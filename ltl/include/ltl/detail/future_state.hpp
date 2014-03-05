@@ -17,13 +17,13 @@ namespace detail {
 struct promised {};
 
 template <typename Function, typename ValueHolder>
-void invoke(Function const& func, ValueHolder const& holder)
+void invoke(Function&& func, ValueHolder const& holder)
 {
     func(*holder);
 }
 
 template <typename Function>
-void invoke(Function const& func, bool const&)
+void invoke(Function&& func, bool const&)
 {
     func();
 }
