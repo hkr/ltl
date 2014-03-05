@@ -62,7 +62,10 @@ struct to_future_void
     template <typename T>
     type operator()(future<T> const& x) const
     {
-        return x.get_state(use_private_interface)->template then<future<void>>(std::bind([](){}));
+        if (auto&& state = x.get_state(use_private_interface))
+            return state->template then<future<void>>(std::bind([](){}));
+        else
+            return make_future();
     }
 };
 
@@ -93,7 +96,7 @@ future<typename detail::tuple_map<detail::future_get, Ts...>::type>
     when_all(std::tuple<Ts...>& fs)
 {
     auto fsc = std::make_shared<std::tuple<Ts...>>(fs);
-    when_all_ready(fs).then([=]() {
+    return when_all_ready(fs).then([=]() {
         return detail::tuple_map<detail::future_get, Ts...>()(*fsc);
     });
 }

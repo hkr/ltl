@@ -71,6 +71,7 @@ struct tuple_transform
             *out++ = func(std::get<I>(x));
             return tuple_transform<Tuple, I+1>::apply(x, out, func);
         }
+        return out;
     }
 };
     
