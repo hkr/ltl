@@ -4,6 +4,7 @@
 
 #include <new>
 #include <assert.h>
+#include <vector>
 
 namespace ltl {
     
@@ -11,27 +12,54 @@ static_assert(sizeof(void*) >= sizeof(context_data_t),  "size mismatch");
 
 struct context
 {
-    context() : ctx(), data() {}
+    context()
+    : ctx()
+    , data()
+    {
+    }
+    
     boost::context::fcontext_t* ctx;
     context_data_t data;
-    
+
     context(context const&) = delete;
     context& operator=(context const&) = delete;
 };
+    
+namespace {
+struct secondary_context : context
+{
+    explicit secondary_context(std::size_t stack_size)
+    : context()
+    , stack(stack_size)
+    {
+    }
+
+    std::vector<char> stack;
+    
+    secondary_context(secondary_context const&) = delete;
+    secondary_context& operator=(secondary_context const&) = delete;
+};
+} // namespace
     
 void jump(context* ofc, context* nfc)
 {
     boost::context::jump_fcontext(ofc->ctx, nfc->ctx, nfc->data);
 }
     
-context* create_context(void* stack, std::size_t size, void (*fn)(context_data_t), context_data_t vp)
+context* create_context(std::size_t stack_size, void (*fn)(context_data_t), context_data_t vp)
 {
-    context* ctx = new context();
-    stack = static_cast<char*>(stack) + sizeof(context);
-    size -= 2 * sizeof(context); // waste some space, but allow make_fcontext to place fcontext_t at either end of the stack
-    ctx->ctx = boost::context::make_fcontext(stack, size, fn);
+    auto ctx = new secondary_context(stack_size);
+
+    // make_fcontext wants the pointer to start or end of the stack
+    // the direction in which the stack grows is platform dependent, but this should all current platforms
+    ctx->ctx = boost::context::make_fcontext(ctx->stack.data() + stack_size, stack_size, fn);
     ctx->data = vp;
     return ctx;
+}
+    
+void destroy_context(context* ctx)
+{
+    delete static_cast<secondary_context*>(ctx);
 }
     
 namespace {

@@ -11,10 +11,10 @@ struct context;
 typedef intptr_t context_data_t;
     
 // creates a context on the stack
-// size default size of the stack in bytes (may be ignored by the implementation)
+// stack_size default size of the stack in bytes (may be ignored by the implementation)
 // fn function to be called when the context is first jumped to
 // vp data passed to fn
-context* create_context(std::size_t size, void (*fn)(context_data_t), context_data_t vp);
+context* create_context(std::size_t stack_size, void (*fn)(context_data_t), context_data_t vp);
 
 // destroy the context
 void destroy_context(context* ctx);
