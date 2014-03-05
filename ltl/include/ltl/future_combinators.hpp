@@ -37,7 +37,7 @@ future<void> when_all_ready(InputIterator first, InputIterator last)
  
 template <typename InputIterator>
 future<std::vector<typename std::iterator_traits<InputIterator>::value_type::value_type>>
-when_all(InputIterator first, InputIterator last)
+    when_all(InputIterator first, InputIterator last)
 {
     typedef typename std::iterator_traits<InputIterator>::value_type future_type;
     typedef typename future_type::value_type value_type;
@@ -100,6 +100,9 @@ future<typename detail::tuple_map<detail::future_get, Ts...>::type>
         return detail::tuple_map<detail::future_get, Ts...>()(*fsc);
     });
 }
+    
+    
+
     
 } // namespace ltl
 
