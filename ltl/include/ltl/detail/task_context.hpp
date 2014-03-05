@@ -35,7 +35,7 @@ public:
     detail::task_queue_impl* get_task_queue();
 
 private:
-    static void trampoline(context_data_t instance);
+    static void run(context_data_t instance);
     
 private:
     std::vector<void*> stack_;

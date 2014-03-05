@@ -14,7 +14,7 @@ task_context::task_context(context* main,
 , func_()
 , keep_alive_()
 , main_(main)
-, own_()
+, own_(create_context(&stack_.front(), stack_.size() * sizeof(void*), &run, reinterpret_cast<context_data_t>(this)))
 , finished_(std::move(finished))
 , task_queue_(tq)
 {
@@ -45,17 +45,19 @@ void task_context::resume()
     jump(main_, own_);
 }
 
-void task_context::trampoline(context_data_t instance)
+void task_context::run(context_data_t instance)
 {
     task_context* const self = reinterpret_cast<task_context*>(instance);
     
-    self->func_();
-    self->finished_(self->keep_alive_);
-    LTL_LOG("task_context::trampoline finished %p\n", self);
-    self->keep_alive_.reset();
-    
-    self->yield();
-    
+	while (true)
+	{
+		self->func_();
+		self->finished_(self->keep_alive_);
+		LTL_LOG("task_context::trampoline finished %p\n", self);
+		self->keep_alive_.reset();
+		self->yield();
+	}
+	    
     std::abort();
 }
 
@@ -63,7 +65,6 @@ void task_context::reset(std::function<void()>&& f)
 {
     LTL_LOG("task_context::reset %p\n", this);
     func_ = std::move(f);
-    own_ = create_context(&stack_.front(), stack_.size() * sizeof(void*), &trampoline, reinterpret_cast<context_data_t>(this));
     keep_alive_ = shared_from_this();
 }
 
