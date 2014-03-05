@@ -57,7 +57,10 @@ public:
     T get()
     {
         wait();
-        return *state_->poll();
+        if (valid())
+            return *state_->poll();
+        else
+            return T(); // TODO: std::future says 'undefined behavior'
     }
     
     typename std::conditional<is_future<T>::value, T, future<T>>::type unwrap();
