@@ -2,56 +2,56 @@
 
 #include <windows.h>
 #include <assert.h>
+#include <crtdbg.h>
 
 #include <new>
 
-#if 0
-extern "C" void ltlcontex_trampoline(void* fn, void* data)
-{
-    typedef void (*func_type)(ltl::context_data_t);
-    func_type f = reinterpret_cast<func_type>(fn);
-    f(reinterpret_cast<ltl::context_data_t>(data));
-}
+#define LTL_ASSERT(cond) do { if (!cond) DebugBreak(); } while (false)
 
 namespace ltl {
     
+
+
 struct context
 {
-    context()
+	explicit context(void* fiber) : value(fiber)
     {
-        getcontext(&value);
     }
-    ucontext_t value;
+    void* value;
 };
     
-static_assert(sizeof(context) >= sizeof(ucontext_t), "sizeof context to small");
-    
-void jump(context* ofc, context* nfc)
+void jump(context*, context* nfc)
 {
-    swapcontext(&ofc->value, &nfc->value);
+	LTL_ASSERT(nfc);
+	LTL_ASSERT(nfc->value);
+	SwitchToFiber(nfc->value);
 }
 
 context* create_context(void* stack, std::size_t size, void (*fn)(context_data_t), context_data_t vp)
 {
     if (size < sizeof(context))
         return nullptr;
+
+	// TODO: rework how to allocate stack, create_context interface does not work well with Fibers
+	// TODO: pass allocator function instead
     
-    context* ret = new (stack) context();
-    stack = static_cast<uint8_t*>(stack) + sizeof(context);
-    size -= sizeof(context);
-    
-    ucontext_t* ctx = &ret->value;
-    ctx->uc_stack.ss_size = size;
-    ctx->uc_stack.ss_sp = stack;
-    ctx->uc_link = 0;
-    makecontext(ctx, reinterpret_cast<void(*)()>(ltlcontex_trampoline), 2, reinterpret_cast<void*>(fn), reinterpret_cast<void*>(vp));
-    
-    return ret;
+	// casting function pointer types is ugly, but undefined bahavior, but this is platform-dependent anyway
+	auto fiber = CreateFiber(0, reinterpret_cast<LPFIBER_START_ROUTINE>(fn), reinterpret_cast<LPVOID>(vp));
+	if (!fiber)
+	{
+		DWORD err = GetLastError();
+		int i = 0;
+		++i;
+	}
+	LTL_ASSERT(fiber);
+	return new (stack)context(fiber);
 }
 
 context* create_main_context()
 {
-    return new context();
+	auto fiber = ConvertThreadToFiber(nullptr);
+	LTL_ASSERT(fiber);
+	return new context(fiber);
 }
 
 void destroy_main_context(context* ctx)
@@ -61,5 +61,3 @@ void destroy_main_context(context* ctx)
     
 } // namespace ltl
 
-
-#endif
