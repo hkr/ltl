@@ -276,7 +276,7 @@ struct future_state : future_state_base<T>
 	T const& get() const
 	{
 		// no lock required because value does not change once it's set
-		return *get_value(value);
+		return *get_value(this->value);
 	}
 };
     
