@@ -273,6 +273,12 @@ struct future_state : future_state_base<T>
         for(auto&& f : cs)
             f(v);
     }
+
+	T const& get() const
+	{
+		// no lock required because value does not change once it's set
+		return *get_value(value);
+	}
 };
     
 template <>
@@ -287,6 +293,11 @@ struct future_state<void> : future_state_base<void>
     {
     }
     
+	void get() const
+	{
+
+	}
+
     void set_value()
     {
         continuations_container cs;

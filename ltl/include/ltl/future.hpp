@@ -57,7 +57,7 @@ public:
     {
         wait();
         if (valid())
-            return *state_->poll();
+            return state_->get();
         else
             return T(); // TODO: std::future says 'undefined behavior'
     }
