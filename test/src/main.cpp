@@ -45,10 +45,10 @@ void new_main(int idx)
     {
         int c = ++loopCount;
         std::string const str = ltl::await |= otherQueues[i%2] <<= [=](){ return get_string(idx, c); };
-        ltl::await (otherQueues[(i + i%2) % 2].execute([=](){ print(str); }));
+        ltl::await (otherQueues[(i + i%2) % 2].push_back_resumable([=](){ print(str); }));
     }
 
-    ltl::await(mainQueue.execute([&](){
+    ltl::await(mainQueue.push_back_resumable([&](){
         std::unique_lock<std::mutex> lock(m);
         ++finished;
         cv.notify_one();
@@ -68,7 +68,7 @@ int main(int argc, char** argv)
         cv.wait(lock, [&](){ return finished == 3; });
     }
     
-    ltl::future<void> f = mainQueue.execute([](){});
+    ltl::future<void> f = mainQueue.push_back_resumable([](){});
     f.get();
     
     assert(loopCount == 3 * loopEnd);

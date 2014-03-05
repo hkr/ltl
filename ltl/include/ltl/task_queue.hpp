@@ -11,7 +11,7 @@
 #include "ltl/detail/wrapped_function.hpp"
 
 namespace ltl {
-    
+        
 class task_queue
 {
 public:
@@ -39,29 +39,38 @@ public:
         impl_->join();
     }
     
-    void push_back_resumable(std::function<void()> task)
+    template <typename Function>
+    future<typename std::result_of<Function()>::type> push_back_resumable(Function&& task)
     {
-        impl_->push_back_resumable(std::move(task));
-    }
-    
-    void push_back(std::function<void()> task)
-    {
-        impl_->push_back(std::move(task));
+        return push_pack_impl(std::forward<Function>(task), &detail::task_queue_impl::push_back_resumable);
     }
     
     template <typename Function>
-    future<typename std::result_of<Function()>::type> execute(Function&& task);
+    future<typename std::result_of<Function()>::type> push_back(Function&& task)
+    {
+        return push_pack_impl(std::forward<Function>(task), &detail::task_queue_impl::push_back);
+    }
+    
+    template <typename Function>
+    void push_back_and_forget(Function&& task)
+    {
+        impl_->push_back(std::forward<Function>(task));
+    }
+    
+private:
+    template <typename Function, typename PushMemFn>
+    future<typename std::result_of<Function()>::type> push_pack_impl(Function&& task, PushMemFn push);
     
 private:
     std::shared_ptr<detail::task_queue_impl> impl_;
 };
     
-template <typename Function>
-inline future<typename std::result_of<Function()>::type> task_queue::execute(Function&& task)
+template <typename Function, typename PushMemFn>
+inline future<typename std::result_of<Function()>::type> task_queue::push_pack_impl(Function&& task, PushMemFn push)
 {
     typedef typename std::result_of<Function()>::type result_type;
     detail::wrapped_function<result_type> wf(std::forward<Function>(task));
-    impl_->push_back_resumable(wf);
+    ((*impl_).*push)(wf);
     return wf.promise_->get_future();
 }
     
@@ -69,7 +78,7 @@ inline future<typename std::result_of<Function()>::type> task_queue::execute(Fun
 template <typename Function, typename... Args>
 future<typename std::result_of<Function(Args const&...)>::type> async(task_queue& tq, Function&& f, Args const&... args)
 {
-    return tq.execute([=](){
+    return tq.push_back_resumable([=](){
         return f(args...);
     });
 }
