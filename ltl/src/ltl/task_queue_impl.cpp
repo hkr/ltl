@@ -27,13 +27,15 @@ using namespace std::placeholders;
 struct task_queue_impl::impl
 {
     explicit impl(task_queue_impl* task_queue, char const* name)
-    : main_context_(create_main_context(), &destroy_main_context)
+    : main_context_(nullptr, &destroy_main_context)
     , name_(name ? name : "unnamed")
     , mutex_()
     , join_(false)
     , cv_()
     , queue_()
     , thread_([&]() {
+		main_context_.reset(create_main_context());
+
         auto&& work_to_do = [&](){ return !queue_.empty() || join_; };
         
         while (true)
