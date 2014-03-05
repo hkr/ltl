@@ -10,7 +10,6 @@
 #include <string>
 #include <sstream>
 
-#include <unistd.h>
 #include "assert.h"
 
 std::mutex m;
@@ -72,8 +71,7 @@ int main(int argc, char** argv)
     f.get();
     
     assert(loopCount == 3 * loopEnd);
-    usleep(1000000);
-    
+
     for (auto&& q : otherQueues)
         q.join();
 
