@@ -22,15 +22,26 @@ namespace ltl {
     
 struct context
 {
-    explicit context(std::size_t stack_size = 0)
-    : stack(stack_size)
+    explicit context()
     {
         getcontext(&value);
     }
     ucontext_t value;
+};
+
+namespace {
+struct secondary_context : context
+{
+    explicit secondary_context(std::size_t stack_size)
+    : context()
+    , stack(stack_size)
+    {
+
+    }
     std::vector<char> stack;
 };
-    
+} // namespace
+
 static_assert(sizeof(context) >= sizeof(ucontext_t), "sizeof context to small");
     
 void jump(context* ofc, context* nfc)
@@ -40,7 +51,7 @@ void jump(context* ofc, context* nfc)
 
 context* create_context(std::size_t stack_size, void (*fn)(context_data_t), context_data_t vp)
 {
-    context* ret = new context(stack_size);
+    auto ret = new secondary_context(stack_size);
     ucontext_t* ctx = &ret->value;
     ctx->uc_stack.ss_size = stack_size;
     ctx->uc_stack.ss_sp = ret->stack.data();
@@ -52,7 +63,7 @@ context* create_context(std::size_t stack_size, void (*fn)(context_data_t), cont
     
 void destroy_context(context* ctx)
 {
-    delete ctx;
+    delete static_cast<secondary_context*>(ctx);
 }
 
 context* create_main_context()
