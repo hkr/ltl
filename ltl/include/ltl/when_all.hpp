@@ -10,21 +10,21 @@
 
 namespace ltl {
 
-template <typename InputIterator>
-future<void> when_all_ready(InputIterator first, InputIterator last)
+template <typename ForwardIterator>
+future<void> when_all_ready(ForwardIterator first, ForwardIterator last)
 {
     auto const diff = std::distance(first, last);
     if (diff <= 0)
         return make_future();
     
-    typedef typename std::iterator_traits<InputIterator>::difference_type diff_t;
+    typedef typename std::iterator_traits<ForwardIterator>::difference_type diff_t;
     
     auto counter = std::make_shared<std::atomic<diff_t>>(diff);
     auto prm = std::make_shared<promise<void>>();
     auto dec = std::bind([=](){ if (counter->fetch_sub(1) == 1) prm->set_value(); }); // bind to ignore all arguments
     
     std::for_each(first, last,
-                  [=](typename std::iterator_traits<InputIterator>::reference f)
+                  [=](typename std::iterator_traits<ForwardIterator>::reference f)
     {
         if (!f.valid())
             dec();
@@ -35,11 +35,11 @@ future<void> when_all_ready(InputIterator first, InputIterator last)
     return prm->get_future();
 }
  
-template <typename InputIterator>
-future<std::vector<typename std::iterator_traits<InputIterator>::value_type::value_type>>
-    when_all(InputIterator first, InputIterator last)
+template <typename ForwardIterator>
+future<std::vector<typename std::iterator_traits<ForwardIterator>::value_type::value_type>>
+    when_all(ForwardIterator first, ForwardIterator last)
 {
-    typedef typename std::iterator_traits<InputIterator>::value_type future_type;
+    typedef typename std::iterator_traits<ForwardIterator>::value_type future_type;
     typedef typename future_type::value_type value_type;
     static_assert(is_future<future_type>::value, "InputIterator::value_type must be future<T>");
     
