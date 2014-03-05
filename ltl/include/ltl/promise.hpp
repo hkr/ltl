@@ -4,7 +4,8 @@
 #include <memory>
 
 #include "ltl/future.hpp"
-
+#include "ltl/detail/task_context.hpp"
+#include "ltl/detail/current_task_context.hpp"
 
 namespace ltl {
     
@@ -12,11 +13,17 @@ template <typename T>
 class promise
 {
 public:
-    explicit promise(std::shared_ptr<detail::task_queue_impl> const& jq
-                        = std::shared_ptr<detail::task_queue_impl>())
+    explicit promise()
     : state_()
     {
-        future<T> f {detail::use_private_interface, jq};
+        auto get_await_queue = []()
+        {
+            auto ctx = current_task_context::get();
+            auto tq = ctx ? ctx->get_task_queue() : nullptr;
+            return tq ? tq->shared_from_this() : nullptr;
+        };
+   
+        future<T> f {detail::use_private_interface, get_await_queue()};
         state_ = f.get_state(detail::use_private_interface);
     }
     
