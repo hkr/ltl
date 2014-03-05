@@ -2,7 +2,6 @@
 #define LTL_FUTURE_HPP
 
 #include <type_traits>
-#include <mutex>
 #include <memory>
 
 #include "ltl/detail/future_state.hpp"
