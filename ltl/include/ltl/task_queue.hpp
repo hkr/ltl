@@ -39,9 +39,14 @@ public:
         impl_->join();
     }
     
-    void enqueue(std::function<void()> task)
+    void push_back_resumable(std::function<void()> task)
     {
-        impl_->enqueue_resumable(std::move(task));
+        impl_->push_back_resumable(std::move(task));
+    }
+    
+    void push_back(std::function<void()> task)
+    {
+        impl_->push_back(std::move(task));
     }
     
     template <typename Function>
@@ -56,7 +61,7 @@ inline future<typename std::result_of<Function()>::type> task_queue::execute(Fun
 {
     typedef typename std::result_of<Function()>::type result_type;
     detail::wrapped_function<result_type> wf(std::forward<Function>(task));
-    impl_->enqueue_resumable(wf);
+    impl_->push_back_resumable(wf);
     return wf.promise_->get_future();
 }
     

@@ -60,9 +60,9 @@ void new_main(int idx)
 int main(int argc, char** argv)
 {
     {
-        mainQueue.enqueue([](){ new_main(1); });
-        mainQueue.enqueue([](){ new_main(2); });
-        mainQueue.enqueue([](){ new_main(3); });
+        mainQueue.push_back_resumable([](){ new_main(1); });
+        mainQueue.push_back_resumable([](){ new_main(2); });
+        mainQueue.push_back_resumable([](){ new_main(3); });
         
         std::unique_lock<std::mutex> lock(m);
         cv.wait(lock, [&](){ return finished == 3; });

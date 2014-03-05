@@ -31,7 +31,7 @@ struct await_value
         };
         
         f.then([&](T const& x) {
-            f.get_state(detail::use_private_interface)->await_queue->execute_next([=]() {
+            f.get_state(detail::use_private_interface)->await_queue->push_front([=]() {
                 resume_task(x);
             });
         });
@@ -53,7 +53,7 @@ struct await_value
         };
         
         f.then([&]() {
-            f.get_state(detail::use_private_interface)->await_queue->execute_next([=]() {
+            f.get_state(detail::use_private_interface)->await_queue->push_front([=]() {
                 resumeTask();
             });
         });

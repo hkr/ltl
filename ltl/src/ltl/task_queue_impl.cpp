@@ -16,8 +16,13 @@
 
 namespace ltl {
 namespace detail {
+
     
+namespace {
+enum class scheduling_policy { resumable, non_resumable };
 using namespace std::placeholders;
+} // namespace
+   
     
 struct task_queue_impl::impl
 {
@@ -56,7 +61,7 @@ struct task_queue_impl::impl
             
             if (wi.first)
             {
-                if (wi.second == Resumable)
+                if (wi.second == scheduling_policy::resumable)
                 {
                     run_in_new_context(std::move(wi.first));
                 }
@@ -105,18 +110,18 @@ struct task_queue_impl::impl
         join();
     }
     
-    void enqueue_resumable(std::function<void()> task)
+    void push_back(std::function<void()> task, scheduling_policy sched_policy)
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        queue_.emplace_back(work_item(std::move(task), Resumable));
+        queue_.emplace_back(work_item(std::move(task), sched_policy));
         if (queue_.size() == 1)
             cv_.notify_one();
     }
     
-    void execute_next(std::function<void()> task)
+    void push_front(std::function<void()> task)
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        queue_.emplace_front(work_item(std::move(task), First));
+        queue_.emplace_front(work_item(std::move(task), scheduling_policy::non_resumable));
         if (queue_.size() == 1)
             cv_.notify_one();
     }
@@ -148,7 +153,6 @@ struct task_queue_impl::impl
         }
     }
     
-    enum scheduling_policy { Resumable, First };
     typedef std::function<void()> task;
     typedef std::pair<task, scheduling_policy> work_item;
     
@@ -175,14 +179,19 @@ task_queue_impl::~task_queue_impl()
     
 }
 
-void task_queue_impl::enqueue_resumable(std::function<void()> task)
+void task_queue_impl::push_back_resumable(std::function<void()> task)
 {
-    impl_->enqueue_resumable(std::move(task));
+    impl_->push_back(std::move(task), scheduling_policy::resumable);
 }
     
-void task_queue_impl::execute_next(std::function<void()> task)
+void task_queue_impl::push_back(std::function<void()> task)
 {
-    impl_->execute_next(std::move(task));
+    impl_->push_back(std::move(task), scheduling_policy::non_resumable);
+}
+
+void task_queue_impl::push_front(std::function<void()> task)
+{
+    impl_->push_front(std::move(task));
 }
 
 void task_queue_impl::join()

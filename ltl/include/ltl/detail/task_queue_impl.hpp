@@ -15,8 +15,9 @@ public:
     task_queue_impl(task_queue_impl const&) =delete;
     task_queue_impl& operator=(task_queue_impl const&) =delete;
     
-    void enqueue_resumable(std::function<void()> task);
-    void execute_next(std::function<void()> task);
+    void push_back_resumable(std::function<void()> task);
+    void push_back(std::function<void()> task);
+    void push_front(std::function<void()> task);
     
     void join();
     
