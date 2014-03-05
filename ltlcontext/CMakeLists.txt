@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.11)
 
 set(ltl_context_backend_lib_default ucontext)
 set(ltl_ContextBackendLib ${ltl_context_backend_lib_default} CACHE STRING "Select underlying contexts library to use")
-set_property(CACHE ltl_ContextBackendLib PROPERTY STRINGS ucontext boostcontext)
+set_property(CACHE ltl_ContextBackendLib PROPERTY STRINGS ucontext boostcontext fibers)
 message(STATUS "ltlcontext used backend library: ${ltl_ContextBackendLib}")
 
 project(ltlcontext)
