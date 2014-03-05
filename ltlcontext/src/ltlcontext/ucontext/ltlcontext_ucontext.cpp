@@ -1,9 +1,14 @@
 #include "ltlcontext/ltlcontext.hpp"
 
-#include "ucontext.h"
+#include <ucontext.h>
 #include <assert.h>
 
 #include <new>
+
+#ifdef __APPLE__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 extern "C" void ltlcontex_trampoline(void* fn, void* data)
 {
@@ -60,3 +65,6 @@ void destroy_main_context(context* ctx)
     
 } // namespace ltl
 
+#ifdef __APPLE__
+#pragma GCC diagnostic pop
+#endif
