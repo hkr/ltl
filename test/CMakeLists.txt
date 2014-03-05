@@ -4,8 +4,3 @@ include_directories(ltl_test)
 add_executable(ltl_test src/main.cpp)
 target_link_libraries (ltl_test ltl)
 target_include_directories(ltl_test PRIVATE src)
-
-if (CMAKE_COMPILER_IS_GNUCXX)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-endif()
-

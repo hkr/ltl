@@ -1,3 +1,6 @@
 [submodule "ltlcontext/boost_context/context"]
 	path = ltlcontext/boost_context/context
 	url = https://github.com/hkr/context
+[submodule "CMake/CXX11"]
+	path = CMake/CXX11
+	url = https://github.com/hkr/CXX11-CMake-Macros

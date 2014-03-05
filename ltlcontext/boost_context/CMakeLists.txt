@@ -18,7 +18,3 @@ add_library(boost_context
 	${boost_dependencies_public_headers})
 
 target_include_directories(boost_context PUBLIC context/include dependencies PRIVATE src)
-
-if (CMAKE_COMPILER_IS_GNUCXX)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-endif()

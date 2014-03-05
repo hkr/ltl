@@ -9,8 +9,3 @@ add_library(ltl ${ltl_sources} ${ltl_public_headers} ${ltl_private_headers})
 target_link_libraries(ltl ltlcontext)
 
 target_include_directories(ltl PUBLIC include PRIVATE src)
-
-if (CMAKE_COMPILER_IS_GNUCXX)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-endif()
-
