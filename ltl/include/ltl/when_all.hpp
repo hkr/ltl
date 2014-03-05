@@ -24,7 +24,7 @@ future<void> when_all_ready(ForwardIterator first, ForwardIterator last)
     auto dec = std::bind([=](){ if (counter->fetch_sub(1) == 1) prm->set_value(); }); // bind to ignore all arguments
     
     std::for_each(first, last,
-                  [=](typename std::iterator_traits<ForwardIterator>::reference f)
+                  [=](typename std::iterator_traits<ForwardIterator>::reference f) mutable
     {
         if (!f.valid())
             dec();
