@@ -1,5 +1,5 @@
-#ifndef LTL_FUTURE_COMBINATORS_HPP
-#define LTL_FUTURE_COMBINATORS_HPP
+#ifndef LTL_FUTURE_WHEN_ALL_HPP
+#define LTL_FUTURE_WHEN_ALL_HPP
 
 #include <atomic>
 #include <iterator>
@@ -106,4 +106,4 @@ future<typename detail::tuple_map<detail::future_get, Ts...>::type>
     
 } // namespace ltl
 
-#endif // LTL_FUTURE_COMBINATORS_HPP
+#endif // LTL_FUTURE_WHEN_ALL_HPP
