@@ -59,21 +59,17 @@ public:
     
 private:
     template <typename Function, typename PushMemFn>
-    future<typename std::result_of<Function()>::type> push_pack_impl(Function&& task, PushMemFn push);
+    future<typename std::result_of<Function()>::type> push_pack_impl(Function&& task, PushMemFn push)
+    {
+        typedef typename std::result_of<Function()>::type result_type;
+        detail::wrapped_function<result_type> wf(std::forward<Function>(task));
+        ((*impl_).*push)(wf);
+        return wf.promise_->get_future();
+    }
     
 private:
     std::shared_ptr<detail::task_queue_impl> impl_;
 };
-    
-template <typename Function, typename PushMemFn>
-inline future<typename std::result_of<Function()>::type> task_queue::push_pack_impl(Function&& task, PushMemFn push)
-{
-    typedef typename std::result_of<Function()>::type result_type;
-    detail::wrapped_function<result_type> wf(std::forward<Function>(task));
-    ((*impl_).*push)(wf);
-    return wf.promise_->get_future();
-}
-    
     
 template <typename Function, typename... Args>
 future<typename std::result_of<Function(Args const&...)>::type> async(task_queue& tq, Function&& f, Args const&... args)
