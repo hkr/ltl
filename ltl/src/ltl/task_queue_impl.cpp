@@ -75,8 +75,11 @@ struct task_queue_impl::impl
             }
         }
         
+        free_task_contexts_.clear();
+        
         LTL_LOG("task_queue_impl leaving thread loop %s\n", name_);
     })
+    , free_task_contexts_()
     , task_queue_(task_queue)
     , in_progress_count_(0)
     {

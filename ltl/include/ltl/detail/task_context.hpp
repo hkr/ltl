@@ -3,7 +3,6 @@
 
 #include <memory>
 #include <functional>
-#include <vector>
 
 #include "ltlcontext/ltlcontext.hpp"
 
@@ -24,6 +23,8 @@ public:
                  std::function<void(std::shared_ptr<task_context> const&)> finished,
                  detail::task_queue_impl* tq);
     
+    ~task_context();
+    
     task_context(task_context const&) =delete;
     task_context& operator=(task_context const&) =delete;
     
@@ -38,11 +39,10 @@ private:
     static void run(context_data_t instance);
     
 private:
-    std::vector<void*> stack_;
     std::function<void()> func_;
     std::shared_ptr<task_context> keep_alive_;
     context* const main_;
-    context* own_;
+    context* const own_;
     std::function<void(std::shared_ptr<task_context> const&)> finished_;
     detail::task_queue_impl* const task_queue_;
 };

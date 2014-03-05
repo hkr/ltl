@@ -10,17 +10,21 @@ namespace ltl {
 task_context::task_context(context* main,
                            std::function<void(std::shared_ptr<task_context> const&)> finished,
                            detail::task_queue_impl* tq)
-: stack_(64 * 1024)
-, func_()
+: func_()
 , keep_alive_()
 , main_(main)
-, own_(create_context(&stack_.front(), stack_.size() * sizeof(void*), &run, reinterpret_cast<context_data_t>(this)))
+, own_(create_context(64 * 1024, &run, reinterpret_cast<context_data_t>(this)))
 , finished_(std::move(finished))
 , task_queue_(tq)
 {
     LTL_LOG("task_context::task_context %p\n", this);
 }
 
+task_context::~task_context()
+{
+    destroy_context(own_);
+}
+    
 std::shared_ptr<task_context> task_context::create(context* main,
                                                    std::function<void(std::shared_ptr<task_context> const&)> finished,
                                                    detail::task_queue_impl* tq)
