@@ -1,5 +1,6 @@
 #include "ltl/task_queue.hpp"
 #include "ltl/await.hpp"
+#include "ltl/future_combinators.hpp"
 
 #include "ltlcontext/ltlcontext.hpp"
 
@@ -78,7 +79,21 @@ int main(int argc, char** argv)
     
     
     ltl::future<ltl::future<int>> xff;
-    ltl::future<int> xf = ltl::unwrap(std::move(xff));
+    ltl::future<int> xf = xff.unwrap();
+    
+    std::vector<ltl::future<int>> vfi;
+    when_all(std::begin(vfi), std::end(vfi));
+    when_all_ready(std::begin(vfi), std::end(vfi));
+    
+    std::vector<ltl::future<void>> vfv;
+    when_all_ready(std::begin(vfv), std::end(vfv));
+    
+    std::tuple<ltl::future<int>, ltl::future<std::string>> tfis;
+    
+    //typedef typename ltl::detail::tuple_map<ltl::detail::future_get, ltl::future<int>, ltl::future<int>>::type ggg;
+    
+    ltl::future<std::tuple<int, std::string>> r = when_all(tfis);
+    ltl::future<void> fr = when_all_ready(tfis);
     
 	return 0;
 }
