@@ -23,23 +23,7 @@ public:
     : state_()
     {
     }
-    
-    future(future&& other)
-    : state_(std::move(other.state_))
-    {
-    }
-    
-    future(future const& other) = delete;
-    
-    future& operator=(future&& other)
-    {
-        future f(other);
-        state_.swap(f.state_);
-        return *this;
-    }
-    
-    future& operator=(future const& other) = delete;
-    
+   
     bool valid() const
     {
         return state_ != nullptr;
