@@ -57,7 +57,13 @@ void ltl::current_task_context::set(ltl::task_context* ctx)
 
 #else
 
-static thread_local ltl::task_context* value = nullptr;
+#ifdef _MSC_VER
+#define LTL_THREAD_LOCAL __declspec(thread)
+#else
+#define LTL_THREAD_LOCAL __thread
+#endif
+
+static LTL_THREAD_LOCAL ltl::task_context* value = nullptr;
 
 ltl::task_context* ltl::current_task_context::get()
 {
