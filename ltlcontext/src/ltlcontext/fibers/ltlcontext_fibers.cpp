@@ -7,30 +7,56 @@
 #include <new>
 
 namespace ltl {
-        
+    
+struct context
+{
+	void(*fn)(void*);
+	void* fiber;
+	void* data;
+};
+
 void jump(context*, context* nfc)
 {
 	assert(nfc);
-	SwitchToFiber(nfc);
+	SwitchToFiber(nfc->fiber);
 }
 
-context* create_context(std::size_t stack_size, void (*fn)(context_data_t), context_data_t vp)
+namespace {
+void WINAPI fiberproc(void* x)
 {
-	return static_cast<context*>(CreateFiber(stack_size, reinterpret_cast<LPFIBER_START_ROUTINE>(fn), reinterpret_cast<LPVOID>(vp)));
+	auto ctx = static_cast<context*>(x);
+	ctx->fn(ctx->data);
+}
+} // namespace
+
+context* create_context(std::size_t stack_size, void (*fn)(void*), void* vp)
+{
+	auto ctx = new context();
+	ctx->fn = fn;
+	ctx->data = vp;
+	ctx->fiber = CreateFiber(stack_size, fiberproc, ctx);
+	return ctx;
 }
 
 void destroy_context(context* ctx)
 {
-	DeleteFiber(ctx);
+	if (!ctx)
+		return;
+
+	DeleteFiber(ctx->fiber);
+	delete ctx;
 }
 
 context* create_main_context()
 {
-	return static_cast<context*>(ConvertThreadToFiber(nullptr));
+	auto ctx = new context();
+	ctx->fiber = ConvertThreadToFiber(nullptr);
+	return ctx;
 }
 
-void destroy_main_context(context*)
+void destroy_main_context(context* x)
 {
+	delete x;
 	ConvertFiberToThread();
 }
     
