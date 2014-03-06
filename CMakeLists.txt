@@ -8,5 +8,5 @@ enable_cxx11()
 
 add_subdirectory(ltlcontext)
 add_subdirectory(ltl)
-add_subdirectory(test)
+add_subdirectory(ltl_test)
 
