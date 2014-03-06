@@ -75,7 +75,7 @@ template <typename Function, typename... Args>
 future<typename std::result_of<Function(Args const&...)>::type> async(task_queue& tq, Function&& f, Args const&... args)
 {
 	auto fn = std::bind(f, args...); // workaround for GCC bug
-    return tq.push_back_resumable([=](){
+    return tq.push_back_resumable([=]() mutable {
         return fn();
     });
 }
