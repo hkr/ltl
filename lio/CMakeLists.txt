@@ -8,6 +8,6 @@ file(GLOB_RECURSE lio_public_headers  ${CMAKE_CURRENT_SOURCE_DIR} include/lio/*.
 add_library(lio ${lio_sources} ${lio_public_headers} ${lio_private_headers})
 
 find_package(Libuv)
-target_link_libraries(lio ltl)
+target_link_libraries(lio ltl ${LIBUV_LIBRARIES})
 
-target_include_directories(lio PUBLIC include PRIVATE src)
+target_include_directories(lio PUBLIC include PRIVATE src  ${LIBUV_INCLUDE_DIRS})
