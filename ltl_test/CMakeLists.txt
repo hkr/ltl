@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 2.8.11)
+
 project(ltl_test)
-include_directories(ltl_test)
 add_executable(ltl_test src/main.cpp)
 target_link_libraries (ltl_test ltl)
 target_include_directories(ltl_test PRIVATE src)
