@@ -13,7 +13,7 @@ task_context::task_context(context* main,
 : func_()
 , keep_alive_()
 , main_(main)
-, own_(create_context(64 * 1024, &run, reinterpret_cast<context_data_t>(this)))
+, own_(create_context(64 * 1024, &run, this))
 , finished_(std::move(finished))
 , task_queue_(tq)
 {
@@ -49,9 +49,9 @@ void task_context::resume()
     jump(main_, own_);
 }
 
-void task_context::run(context_data_t instance)
+void task_context::run(void* instance)
 {
-    task_context* const self = reinterpret_cast<task_context*>(instance);
+    task_context* const self = static_cast<task_context*>(instance);
     
 	while (true)
 	{

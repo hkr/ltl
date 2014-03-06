@@ -11,13 +11,6 @@
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
-extern "C" void ltlcontex_trampoline(void* fn, void* data)
-{
-    typedef void (*func_type)(ltl::context_data_t);
-    func_type f = reinterpret_cast<func_type>(fn);
-    f(reinterpret_cast<ltl::context_data_t>(data));
-}
-
 namespace ltl {
     
 struct context
@@ -49,14 +42,14 @@ void jump(context* ofc, context* nfc)
     swapcontext(&ofc->value, &nfc->value);
 }
 
-context* create_context(std::size_t stack_size, void (*fn)(context_data_t), context_data_t vp)
+context* create_context(std::size_t stack_size, void (*fn)(void*), void* vp)
 {
     auto ret = new secondary_context(stack_size);
     ucontext_t* ctx = &ret->value;
     ctx->uc_stack.ss_size = stack_size;
     ctx->uc_stack.ss_sp = ret->stack.data();
     ctx->uc_link = 0;
-    makecontext(ctx, reinterpret_cast<void(*)()>(ltlcontex_trampoline), 2, reinterpret_cast<void*>(fn), reinterpret_cast<void*>(vp));
+    makecontext(ctx, reinterpret_cast<void(*)()>(fn), 1, vp);
     
     return ret;
 }

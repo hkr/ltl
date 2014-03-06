@@ -36,7 +36,7 @@ public:
     detail::task_queue_impl* get_task_queue();
 
 private:
-    static void run(context_data_t instance);
+    static void run(void* instance);
     
 private:
     std::function<void()> func_;
