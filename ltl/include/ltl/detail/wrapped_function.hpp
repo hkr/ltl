@@ -10,12 +10,14 @@ namespace ltl {
 namespace detail {
 
 class task_queue_impl;
-    
+ 
+typedef int not_a_copy_ctor;
+
 template <typename R>
 struct wrapped_function
 {
-    template <typename Function>
-    explicit wrapped_function(Function&& task)
+	template <typename Function>
+    wrapped_function(Function&& task, not_a_copy_ctor)
     : task_(std::move(task))
     , promise_(std::make_shared<promise<R>>())
     {
