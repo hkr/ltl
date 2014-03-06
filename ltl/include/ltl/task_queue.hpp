@@ -62,7 +62,7 @@ private:
     future<typename std::result_of<Function()>::type> push_pack_impl(Function&& task, PushMemFn push)
     {
         typedef typename std::result_of<Function()>::type result_type;
-        detail::wrapped_function<result_type> wf(std::forward<Function>(task));
+        detail::wrapped_function<result_type> wf(std::forward<Function>(task), 0);
         ((*impl_).*push)(wf);
         return wf.promise_->get_future();
     }
@@ -74,8 +74,9 @@ private:
 template <typename Function, typename... Args>
 future<typename std::result_of<Function(Args const&...)>::type> async(task_queue& tq, Function&& f, Args const&... args)
 {
+	auto fn = std::bind(f, args...); // workaround for GCC bug
     return tq.push_back_resumable([=](){
-        return f(args...);
+        return fn();
     });
 }
     
