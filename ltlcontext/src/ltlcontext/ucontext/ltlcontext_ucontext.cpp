@@ -15,7 +15,7 @@ namespace ltl {
     
 struct context
 {
-    explicit context()
+    context()
     {
         getcontext(&value);
     }
@@ -29,7 +29,6 @@ struct secondary_context : context
     : context()
     , stack(stack_size)
     {
-
     }
     std::vector<char> stack;
 };
