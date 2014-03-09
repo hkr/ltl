@@ -18,7 +18,7 @@ struct wrapped_function
 {
 	template <typename Function>
     wrapped_function(Function&& task, not_a_copy_ctor)
-    : task_(std::move(task))
+    : task_(std::forward<Function>(task))
     , promise_(std::make_shared<promise<R>>())
     {
     }
