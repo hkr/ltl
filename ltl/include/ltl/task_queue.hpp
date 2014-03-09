@@ -7,8 +7,6 @@
 
 #include "ltl/future.hpp"
 #include "ltl/promise.hpp"
-#include "ltl/detail/task_queue_impl.hpp"
-#include "ltl/detail/wrapped_function.hpp"
 
 namespace ltl {
         
@@ -70,20 +68,11 @@ private:
 private:
     std::shared_ptr<detail::task_queue_impl> impl_;
 };
-    
-template <typename Function, typename... Args>
-future<typename std::result_of<Function(Args const&...)>::type> async(task_queue& tq, Function&& f, Args const&... args)
-{
-	auto fn = std::bind(f, args...); // workaround for GCC bug
-    return tq.push_back_resumable([=]() mutable {
-        return fn();
-    });
-}
-    
+
 template <typename Function>
 future<typename std::result_of<Function()>::type> operator <<= (task_queue& tq, Function&& f)
 {
-    return async(tq, std::forward<Function>(f));
+    return tq.push_back_resumable(std::forward<Function>(f));
 }
     
 } // namespace ltl

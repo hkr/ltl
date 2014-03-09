@@ -8,6 +8,8 @@
 #include "ltl/detail/result_of.hpp"
 #include "ltl/detail/private.hpp"
 #include "ltl/traits.hpp"
+#include "ltl/detail/task_queue_impl.hpp"
+#include "ltl/detail/wrapped_function.hpp"
 
 namespace ltl {
     
@@ -154,12 +156,29 @@ struct unwrap
     }
 };
     
+detail::task_queue_impl& get_async_task_queue();
+    
 } // namespace detail
     
 template <typename T>
 inline typename std::conditional<is_future<T>::value, T, future<T>>::type future<T>::unwrap()
 {
     return detail::unwrap()(future<T>(detail::use_private_interface, state_));
+}
+    
+template <typename Function>
+future<typename std::result_of<Function()>::type> async(Function&& f)
+{
+    typedef typename std::result_of<Function()>::type result_type;
+    detail::wrapped_function<result_type> wf(std::forward<Function>(f), 0);
+    detail::get_async_task_queue().push_back_resumable(wf);
+    return wf.promise_->get_future();
+}
+    
+template <typename Function, typename... Args>
+future<typename std::result_of<Function(Args...)>::type> async(Function&& f, Args &&... args)
+{
+    return async(std::bind(std::forward<Function>(f), std::forward<Args>(args)...));
 }
     
 } // namespace ltl

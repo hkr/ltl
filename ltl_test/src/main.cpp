@@ -47,7 +47,7 @@ void new_main(int idx)
         ltl::await (otherQueues[(i + i%2) % 2].push_back_resumable([=](){ print(str); }));
     }
 
-    ltl::await(mainQueue.push_back_resumable([&](){
+    ltl::await(ltl::async([&](){
         std::unique_lock<std::mutex> lock(m);
         ++finished;
         cv.notify_one();
