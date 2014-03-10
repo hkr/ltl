@@ -26,8 +26,7 @@ struct await_value
         task_context* ctx = current_task_context::get();
         if (!ctx)
         {
-            f.wait();
-            return;
+            return f.get();
         }
         
         auto&& resume_task = [&](T const& x) {
