@@ -6,18 +6,27 @@
 #include <memory>
 #include <functional>
 
+struct uv_loop_s;
+
 namespace lio {
     
 class socket;
+class server;
     
 class iomanager : public std::enable_shared_from_this<iomanager>
 {
 public:
     static std::shared_ptr<iomanager> create();
     
-    void listen(char const* ip, int port, std::function<void(socket)> on_connection);
+    server create_server(char const* ip, int port, std::function<void(std::shared_ptr<socket> const&)> on_connection);
     
-    ltl::future<socket> connect(char const* ip, int port);
+    ltl::future<std::shared_ptr<socket>> connect(char const* ip, int port);
+    
+    void run();
+    void stop();
+
+public:
+    std::shared_ptr<uv_loop_s> get_loop();
     
 private:
     iomanager();
