@@ -12,7 +12,7 @@ future<std::size_t> when_any_ready(ForwardIterator first, ForwardIterator last)
 {
     auto const diff = std::distance(first, last);
     if (diff <= 0)
-        return make_future(std::size_t(-1));
+        return make_ready_future(std::size_t(-1));
  
     auto prm = std::make_shared<promise<std::size_t>>();
     

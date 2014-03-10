@@ -15,7 +15,7 @@ future<void> when_all_ready(ForwardIterator first, ForwardIterator last)
 {
     auto const diff = std::distance(first, last);
     if (diff <= 0)
-        return make_future();
+        return make_ready_future();
     
     typedef typename std::iterator_traits<ForwardIterator>::difference_type diff_t;
     
@@ -65,7 +65,7 @@ struct to_future_void
         if (auto&& state = x.get_state(use_private_interface))
             return state->template then<future<void>>(std::bind([](){}));
         else
-            return make_future();
+            return make_ready_future();
     }
 };
 

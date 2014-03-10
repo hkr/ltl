@@ -98,14 +98,14 @@ void swap(future<T>& x, future<T>& y)
 }
  
 template <typename T>
-future<T> make_future(T&& value)
+future<T> make_ready_future(T&& value)
 {
     future<T> f(detail::use_private_interface, detail::promised());
     f.get_state(detail::use_private_interface)->set_value(std::forward<T>(value));
     return std::move(f);
 }
 
-inline future<void> make_future()
+inline future<void> make_ready_future()
 {
     future<void> f(detail::use_private_interface, detail::promised());
     f.get_state(detail::use_private_interface)->set_value();
