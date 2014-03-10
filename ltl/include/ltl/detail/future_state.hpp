@@ -70,7 +70,7 @@ struct add_continuation
     template <typename Function, typename Continuations, typename State>
     void operator()(Continuations& continuations, std::shared_ptr<State> const& rs, Function&& func) const
     {
-        continuations.emplace_back([=]()
+        continuations.emplace_back([=]() mutable
         {
             invoke_and_set_value<T, R>()(*rs, func);
         });
@@ -83,7 +83,8 @@ struct add_continuation<T, void>
     template <typename Function, typename Continuations, typename State>
     void operator()(Continuations& continuations, std::shared_ptr<State> const& rs, Function&& func) const
     {
-		continuations.emplace_back([=]() mutable {
+		continuations.emplace_back([=]() mutable 
+		{
             invoke_and_set_value<T, void>()(*rs, std::forward<Function>(func));
         });
     }
