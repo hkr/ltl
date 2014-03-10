@@ -17,35 +17,35 @@ struct await_value
     }
     
     template <class T>
-    T apply(future<T>& f) const
+    T apply(future<T> f) const
     {
         if (f.ready())
             return f.get();
         
-        T value;
         task_context* ctx = current_task_context::get();
         if (!ctx)
         {
             return f.get();
         }
         
-        auto&& resume_task = [&](T const& x) {
-            value = x;
+        auto&& resume_task = [=]() {
             ctx->resume();
         };
         
-        f.then([&](T const& x) {
-            f.get_state(detail::use_private_interface)->await_queue->push_front([=]() {
-                resume_task(x);
+        auto s = f.get_state(detail::use_private_interface);
+        
+        s->continue_with([&]() {
+            s->await_queue->push_front([=]() {
+                resume_task();
             });
         });
         
         ctx->yield();
         
-        return value;
+        return f.get();
     }
     
-    void apply(future<void>& f) const
+    void apply(future<void> f) const
     {
         if (f.ready())
             return;
@@ -57,13 +57,15 @@ struct await_value
             return;
         }
         
-        auto&& resumeTask = [&]() {
+        auto&& resume_task = [=]() {
             ctx->resume();
         };
         
-        f.then([&]() {
-            f.get_state(detail::use_private_interface)->await_queue->push_front([=]() {
-                resumeTask();
+        auto s = f.get_state(detail::use_private_interface);
+        
+        s->continue_with([&]() {
+            s->await_queue->push_front([=]() {
+                resume_task();
             });
         });
         

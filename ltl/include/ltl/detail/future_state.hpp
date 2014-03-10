@@ -5,28 +5,18 @@
 #include <mutex>
 #include <memory>
 #include <deque>
+#include <future>
 
 #include "ltl/detail/task_queue_impl.hpp"
 #include "ltl/detail/block.hpp"
 #include "ltl/detail/private.hpp"
+#include "ltl/forward_declarations.hpp"
 
 namespace ltl {
     
 namespace detail {
 
 struct promised {};
-
-template <typename Function, typename ValueHolder>
-void invoke(Function&& func, ValueHolder const& holder)
-{
-    func(*holder);
-}
-
-template <typename Function>
-void invoke(Function&& func, bool const&)
-{
-    func();
-}
     
 template <typename ValueHolder>
 typename ValueHolder::pointer get_value(ValueHolder const& holder)
@@ -39,57 +29,38 @@ inline void* get_value(bool const& holder)
     return holder ? reinterpret_cast<void*>(1) : nullptr;
 }
 
-template <typename T>
-struct select_continuation
-{
-    typedef std::function<void(T const&)> type;
-};
-    
-template <>
-struct select_continuation<void>
-{
-    typedef std::function<void()> type;
-};
-
 template <typename T, typename R>
 struct invoke_and_set_value
 {
-    template <typename Function, typename State, class ValueHolder>
-    void operator()(State& rs, Function&& func, ValueHolder const& holder)
+    template <typename Function, typename State>
+    void operator()(State& rs, Function&& func)
     {
-        rs.set_value(func(*holder));
+        try
+        {
+            rs.set_value(func());
+        }
+        catch (...)
+        {
+            rs.set_exception(std::current_exception());
+        }
     }
 };
 
 template <typename T>
 struct invoke_and_set_value<T, void>
 {
-    template <typename Function, typename State, class ValueHolder>
-    void operator()(State& rs, Function&& func, ValueHolder const& holder)
+    template <typename Function, typename State>
+    void operator()(State& rs, Function&& func)
     {
-        func(*holder);
-        rs.set_value();
-    }
-};
-
-template <typename R>
-struct invoke_and_set_value<void, R>
-{
-    template <typename Function, typename State, class ValueHolder>
-    void operator()(State& rs, Function&& func, ValueHolder const& holder)
-    {
-        rs.set_value(func());
-    }
-};
-
-template <>
-struct invoke_and_set_value<void, void>
-{
-    template <typename Function, typename State, class ValueHolder>
-    void operator()(State& rs, Function&& func, ValueHolder const&)
-    {
-        func();
-        rs.set_value();
+        try
+        {
+            func();
+            rs.set_value();
+        }
+        catch (...)
+        {
+            rs.set_exception(std::current_exception());
+        }
     }
 };
 
@@ -99,22 +70,9 @@ struct add_continuation
     template <typename Function, typename Continuations, typename State>
     void operator()(Continuations& continuations, std::shared_ptr<State> const& rs, Function&& func) const
     {
-        continuations.emplace_back([=](T const& x)
-        {
-           rs->set_value(func(x));
-        });
-    }
-};
-
-template <typename R>
-struct add_continuation<void, R>
-{
-    template <typename Function, typename Continuations, typename State>
-    void operator()(Continuations& continuations, std::shared_ptr<State> const& rs, Function&& func) const
-    {
         continuations.emplace_back([=]()
         {
-           rs->set_value(func());
+            invoke_and_set_value<T, R>()(*rs, func);
         });
     }
 };
@@ -125,47 +83,17 @@ struct add_continuation<T, void>
     template <typename Function, typename Continuations, typename State>
     void operator()(Continuations& continuations, std::shared_ptr<State> const& rs, Function&& func) const
     {
-		continuations.emplace_back([=](T const& x) mutable {
-           func(x);
-           rs->set_value();
-        });
-    }
-    
-    template <typename Function, typename Continuations>
-    void operator()(Continuations& continuations, Function&& func) const
-    {
-		continuations.emplace_back([=](T const& x) mutable {
-            func(x);
-        });
-    }
-};
-
-template <>
-struct add_continuation<void, void>
-{
-    template <typename Function, typename Continuations, typename State>
-    void operator()(Continuations& continuations, std::shared_ptr<State> const& rs, Function&& func) const
-    {
 		continuations.emplace_back([=]() mutable {
-            func();
-            rs->set_value();
-        });
-    }
-    
-    template <typename Function, typename Continuations>
-    void operator()(Continuations& continuations, Function&& func) const
-    {
-        continuations.emplace_back([=]() mutable {
-            func();
+            invoke_and_set_value<T, void>()(*rs, std::forward<Function>(func));
         });
     }
 };
 
 template <typename T>
-struct future_state_base
+struct future_state_base : std::enable_shared_from_this<future_state_base<T>>
 {
     typedef typename std::conditional<std::is_void<T>::value, bool, std::unique_ptr<T>>::type ValueHolder;
-    typedef std::deque<typename select_continuation<T>::type> continuations_container;
+    typedef std::deque<std::function<void()>> continuations_container;
     typedef std::shared_ptr<detail::task_queue_impl> await_queue_type;
     
     mutable std::mutex mutex;
@@ -173,6 +101,7 @@ struct future_state_base
     continuations_container continuations;
     await_queue_type await_queue;
     std::unique_ptr<detail::block> block;
+    std::exception_ptr exception;
     
     explicit future_state_base(await_queue_type const& tq)
     : value()
@@ -183,6 +112,12 @@ struct future_state_base
     future_state_base(future_state_base const&) =delete;
     future_state_base& operator=(future_state_base const&) =delete;
 
+    bool ready() const
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        return value || exception;
+    }
+    
     void wait()
     {
         {
@@ -200,12 +135,6 @@ struct future_state_base
         block->wait();
     }
     
-    T* poll() const
-    {
-        std::lock_guard<std::mutex> lock(mutex);
-        return get_value(value);
-    }
-    
     template <typename Future, typename Function>
     Future then(Function&& func)
     {
@@ -214,14 +143,14 @@ struct future_state_base
         
         {
             std::lock_guard<std::mutex> lock(mutex);
-            if (!value)
+            if (!value && !exception)
             {
                 add_continuation<T, typename Future::value_type>()(continuations, rs, std::forward<Function>(func));
                 return fr;
             }
         }
         
-        invoke_and_set_value<T, typename Future::value_type>()(*rs, func, value);
+        invoke_and_set_value<T, typename Future::value_type>()(*rs, func);
         return fr;
     }
     
@@ -230,13 +159,22 @@ struct future_state_base
     {
         {
             std::lock_guard<std::mutex> lock(mutex);
-            if (!value)
+            if (!value && !exception)
             {
-                add_continuation<T, void>()(continuations, std::forward<Function>(func));
+                continuations.emplace_back([=]() mutable {
+                    func(); // TODO: handle exception
+                });
                 return;
             }
         }
-        invoke(std::forward<Function>(func), value);
+        func(); // TODO: handle exception
+    }
+    
+    void set_exception(std::exception_ptr p)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (value || exception) throw std::future_error(std::future_errc::promise_already_satisfied);
+        exception = std::move(p);
     }
     
 protected:
@@ -250,6 +188,7 @@ struct future_state : future_state_base<T>
     typedef future_state_base<T> base_type;
     typedef typename base_type::await_queue_type await_queue_type;
     typedef typename base_type::continuations_container continuations_container;
+    typedef T const& get_result_type;
     
     explicit future_state(await_queue_type const& tq = await_queue_type())
     : base_type(tq)
@@ -257,25 +196,35 @@ struct future_state : future_state_base<T>
     }
     
     template <class U>
-    void set_value(U&& v)
+    void set_value_impl(U&& v, bool allow_exception)
     {
         continuations_container cs;
         {
             std::lock_guard<std::mutex> lock(this->mutex);
-            if (this->value)
+            if (this->value || this->exception)
+            {
+                if (allow_exception) throw std::future_error(std::future_errc::promise_already_satisfied);
                 return;
+            }
             
             this->value.reset(new T(std::forward<U>(v)));
             cs.swap(this->continuations);
         }
         
         for(auto&& f : cs)
-            f(v);
+            f();
+    }
+    
+    template <class U>
+    void set_value(U&& v)
+    {
+        set_value_impl(std::forward<U>(v), true);
     }
 
 	T const& get() const
 	{
 		// no lock required because value does not change once it's set
+        if (this->exception) std::rethrow_exception(this->exception);
 		return *get_value(this->value);
 	}
 };
@@ -286,6 +235,7 @@ struct future_state<void> : future_state_base<void>
     typedef future_state_base<void> base_type;
     typedef base_type::await_queue_type await_queue_type;
     typedef base_type::continuations_container continuations_container;
+    typedef void get_result_type;
     
     explicit future_state(await_queue_type const& tq = await_queue_type())
     : base_type(tq)
@@ -294,16 +244,19 @@ struct future_state<void> : future_state_base<void>
     
 	void get() const
 	{
-
+        if (this->exception) std::rethrow_exception(this->exception);
 	}
 
-    void set_value()
+    void set_value_impl(bool allow_exception)
     {
         continuations_container cs;
         {
             std::lock_guard<std::mutex> lock(mutex);
-            if (value)
+            if (value || this->exception)
+            {
+                if (allow_exception) throw std::future_error(std::future_errc::promise_already_satisfied);
                 return;
+            }
             
             this->value = true;
             cs.swap(continuations);
@@ -311,6 +264,11 @@ struct future_state<void> : future_state_base<void>
         
         for(auto&& f : cs)
             f();
+    }
+    
+    void set_value()
+    {
+        set_value_impl(true);
     }
 };
     

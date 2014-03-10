@@ -45,10 +45,10 @@ future<std::vector<typename std::iterator_traits<ForwardIterator>::value_type::v
     
     auto fs = std::make_shared<std::vector<future_type>>(first, last);
     
-    return when_all_ready(std::begin(*fs), std::end(*fs)).then([=]() {
+    return when_all_ready(std::begin(*fs), std::end(*fs)).then([=](future<void> f) {
         std::vector<typename future_type::value_type> result(fs->size());
         std::transform(std::begin(*fs), std::end(*fs), std::begin(result), [](future_type& x) {
-            return x.get();
+            return x.get(); // throws
         });
         return result;
     });
@@ -96,7 +96,8 @@ future<typename detail::tuple_map<detail::future_get, Ts...>::type>
     when_all(std::tuple<Ts...>& fs)
 {
     auto fsc = std::make_shared<std::tuple<Ts...>>(fs);
-    return when_all_ready(fs).then([=]() {
+    return when_all_ready(fs).then([=](future<void>) {
+        // TODO: handle exception
         return detail::tuple_map<detail::future_get, Ts...>()(*fsc);
     });
 }

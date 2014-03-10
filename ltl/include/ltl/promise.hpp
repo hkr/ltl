@@ -15,6 +15,7 @@ class promise
 public:
     explicit promise()
     : state_()
+    , retrieved_(false)
     {
         auto get_await_queue = []()
         {
@@ -27,8 +28,9 @@ public:
         state_ = f.get_state(detail::use_private_interface);
     }
     
-    promise(promise&& other)
+    promise(promise&& other) noexcept
     : state_(std::move(other.state_))
+    , retrieved_(std::move(other.retrieved_))
     {
     }
     
@@ -38,6 +40,7 @@ public:
     {
         promise p(other);
         state_.swap(p.state_);
+        retrieved_ = p.retrieved_;
         return *this;
     }
     
@@ -46,37 +49,57 @@ public:
     template <typename U>
     void set_value(U const& value)
     {
+        if (!state_) throw std::future_error(std::future_errc::no_state);
         state_->set_value(value);
     }
     
     template <typename U>
     void set_value(U&& value)
     {
+        if (!state_) throw std::future_error(std::future_errc::no_state);
         state_->set_value(std::forward<U>(value));
     }
     
     void set_value()
     {
+        if (!state_) throw std::future_error(std::future_errc::no_state);
         state_->set_value();
+    }
+    
+    void set_exception(std::exception_ptr p)
+    {
+        if (!state_) throw std::future_error(std::future_errc::no_state);
+        state_->set_exception(std::move(p));
     }
     
     future<T> get_future()
     {
+        if (!state_) throw std::future_error(std::future_errc::no_state);
+        if (retrieved_) throw std::future_error(std::future_errc::future_already_retrieved);
+        retrieved_ = true;
         return future<T>(detail::use_private_interface, state_);
     }
     
-    void swap(promise& other)
+    void swap(promise& other) noexcept
     {
         state_swap(other.state_);
+        std::swap(retrieved_, other.retrieved_);
     }
     
 private:
     typedef typename future<T>::state state;
     std::shared_ptr<state> state_;
+    bool retrieved_;
+    
+public:
+    std::shared_ptr<state> const& get_state(detail::private_interface) const
+    {
+        return state_;
+    }
 };
     
 template <typename T>
-void swap(promise<T>& x, promise<T>& y)
+void swap(promise<T>& x, promise<T>& y) noexcept
 {
     x.swap(y);
 }

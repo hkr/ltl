@@ -25,7 +25,8 @@ future<std::size_t> when_any_ready(ForwardIterator first, ForwardIterator last)
         {
             at_least_one_valid = true;
             auto&& state = f.get_state(detail::use_private_interface);
-            state->continue_with(std::bind([=](){ prm->set_value(i); }));
+            // TODO: handle exceptions in continuation
+            state->continue_with(std::bind([=](){ prm->get_state(detail::use_private_interface)->set_value_impl(i, false); }));
         }
     }
     

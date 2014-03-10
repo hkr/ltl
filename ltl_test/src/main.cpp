@@ -79,8 +79,9 @@ int main(int argc, char** argv)
     
     
     ltl::future<ltl::future<int>> xff;
+    try {
     ltl::future<int> xf = xff.unwrap();
-    
+    } catch(...) {}
     std::vector<ltl::future<int>> vfi;
     when_all(std::begin(vfi), std::end(vfi));
     when_all_ready(std::begin(vfi), std::end(vfi));

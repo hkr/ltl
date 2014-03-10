@@ -5,7 +5,6 @@
 #include <memory>
 
 #include "ltl/detail/future_state.hpp"
-#include "ltl/detail/result_of.hpp"
 #include "ltl/detail/private.hpp"
 #include "ltl/traits.hpp"
 #include "ltl/detail/task_queue_impl.hpp"
@@ -20,34 +19,35 @@ public:
     typedef detail::future_state<T> state;
     typedef T value_type;
 
-    future()
+    future() noexcept
     : state_()
     {
     }
    
-    bool valid() const
+    bool valid() const noexcept
     {
         return state_ != nullptr;
     }
     
     template <typename Function>
-    future<typename result_of<Function, T>::type> then(Function&& func)
+    future<typename std::result_of<Function(future<T>)>::type> then(Function&& func)
     {
-        typedef future<typename result_of<Function, T>::type> result_future;
-        return valid() ? state_->template then<result_future>(std::forward<Function>(func)) : result_future();
+        if (!state_) throw std::future_error(std::future_errc::no_state);
+        using result_future = future<typename std::result_of<Function(future<T>)>::type> ;
+        return state_->template then<result_future>(std::bind(std::forward<Function>(func), future<T>(detail::use_private_interface, state_)));
     }
     
-    void swap(future& other)
+    void swap(future& other) noexcept
     {
         state_swap(other.state_);
     }
     
-    bool ready()
+    bool ready() const
     {
-        return state_ ? state_->poll() != nullptr : false;
+        return state_ ? state_->ready() : false;
     }
     
-    void wait()
+    void wait() const
     {
         if (!valid())
             return;
@@ -55,13 +55,15 @@ public:
         return state_->wait();
     }
     
-    T get()
+    typename state::get_result_type get() const
     {
         wait();
-        if (valid())
+        if (state_)
+        {
             return state_->get();
-        else
-            return T(); // TODO: std::future says 'undefined behavior'
+        }
+                
+        throw std::future_error(std::future_errc::no_state);
     }
     
     typename std::conditional<is_future<T>::value, T, future<T>>::type unwrap();
@@ -92,7 +94,7 @@ public:
 };
   
 template <typename T>
-void swap(future<T>& x, future<T>& y)
+void swap(future<T>& x, future<T>& y) noexcept
 {
     x.swap(y);
 }
@@ -127,15 +129,33 @@ struct unwrap
     future<T> operator()(future<future<T>>&& other) const
     {
         if (!other.valid())
-            return future<T>();
+            throw std::future_error(std::future_errc::no_state);
         
+        auto other_state = other.get_state(detail::use_private_interface);
         future<T> f(detail::use_private_interface, other.get_state(detail::use_private_interface)->await_queue);
         auto s = f.get_state(detail::use_private_interface);
         
-        other.get_state(detail::use_private_interface)->continue_with([=](future<T> const& x){
-            x.get_state(detail::use_private_interface)->continue_with([=](T const& x) {
-                s->set_value(x);
-            });
+        other.then([=](future<future<T>> ff) mutable {
+            auto wrapped_state = ff.get_state(detail::use_private_interface);
+            
+            try
+            {
+                ff.get(); // throws
+                wrapped_state->continue_with([=]() mutable {
+                    try
+                    {
+                        s->set_value(wrapped_state->get().get());
+                    }
+                    catch(...)
+                    {
+                        s->set_exception(std::current_exception());
+                    }
+                });
+            }
+            catch(...)
+            {
+                s->set_exception(std::current_exception());
+            }
         });
         return std::move(f);
     }
@@ -143,14 +163,33 @@ struct unwrap
     inline future<void> operator()(future<future<void>>&& other) const
     {
         if (!other.valid())
-            return future<void>();
+            throw std::future_error(std::future_errc::no_state);
         
-        future<void> f(detail::use_private_interface, other.get_state(detail::use_private_interface)->await_queue);
+        auto other_state = other.get_state(detail::use_private_interface);
+        future<void> f(detail::use_private_interface, other_state->await_queue);
         auto s = f.get_state(detail::use_private_interface);
-        other.get_state(detail::use_private_interface)->continue_with([=](future<void> const& x){
-            x.get_state(detail::use_private_interface)->continue_with([=]() {
-                s->set_value();
-            });
+        
+        other.then([=](future<future<void>> ff) {
+            auto wrapped_state = ff.get_state(detail::use_private_interface);
+            
+            try
+            {
+                ff.get(); // throws
+                wrapped_state->continue_with([=]() mutable {
+                    try
+                    {
+                        wrapped_state->get().get();
+                    }
+                    catch(...)
+                    {
+                        s->set_exception(std::current_exception());
+                    }
+                });
+            }
+            catch(...)
+            {
+                s->set_exception(std::current_exception());
+            }
         });
         return std::move(f);
     }
