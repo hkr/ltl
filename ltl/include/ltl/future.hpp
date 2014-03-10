@@ -9,6 +9,7 @@
 #include "ltl/traits.hpp"
 #include "ltl/detail/task_queue_impl.hpp"
 #include "ltl/detail/wrapped_function.hpp"
+#include "ltl/detail/noexcept.hpp"
 
 namespace ltl {
     
@@ -19,12 +20,12 @@ public:
     typedef detail::future_state<T> state;
     typedef T value_type;
 
-    future() noexcept
+    future() LTL_NOEXCEPT
     : state_()
     {
     }
    
-    bool valid() const noexcept
+    bool valid() const LTL_NOEXCEPT
     {
         return state_ != nullptr;
     }
@@ -37,7 +38,7 @@ public:
         return state_->template then<result_future>(std::bind(std::forward<Function>(func), future<T>(detail::use_private_interface, state_)));
     }
     
-    void swap(future& other) noexcept
+    void swap(future& other) LTL_NOEXCEPT
     {
         state_swap(other.state_);
     }
@@ -94,7 +95,7 @@ public:
 };
   
 template <typename T>
-void swap(future<T>& x, future<T>& y) noexcept
+void swap(future<T>& x, future<T>& y) LTL_NOEXCEPT
 {
     x.swap(y);
 }

@@ -6,6 +6,7 @@
 #include "ltl/future.hpp"
 #include "ltl/detail/task_context.hpp"
 #include "ltl/detail/current_task_context.hpp"
+#include "ltl/detail/noexcept.hpp"
 
 namespace ltl {
     
@@ -28,7 +29,7 @@ public:
         state_ = f.get_state(detail::use_private_interface);
     }
     
-    promise(promise&& other) noexcept
+    promise(promise&& other) LTL_NOEXCEPT
     : state_(std::move(other.state_))
     , retrieved_(std::move(other.retrieved_))
     {
@@ -80,7 +81,7 @@ public:
         return future<T>(detail::use_private_interface, state_);
     }
     
-    void swap(promise& other) noexcept
+    void swap(promise& other) LTL_NOEXCEPT
     {
         state_swap(other.state_);
         std::swap(retrieved_, other.retrieved_);
@@ -99,7 +100,7 @@ public:
 };
     
 template <typename T>
-void swap(promise<T>& x, promise<T>& y) noexcept
+void swap(promise<T>& x, promise<T>& y) LTL_NOEXCEPT
 {
     x.swap(y);
 }
