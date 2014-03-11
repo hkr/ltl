@@ -125,6 +125,18 @@ struct unwrap
         return std::move(other);
     }
     
+    template <typename State, typename T>
+    void static get_and_set_value(State& s, future<T> const& f)
+    {
+        s.set_value(f.get());
+    }
+    
+    template <typename State>
+    void static get_and_set_value(State& s, future<void> const& f)
+    {
+        f.get(); // get exception
+        s.set_value();
+    }
     
     template <typename T>
     future<T> operator()(future<future<T>>&& other) const
@@ -145,41 +157,7 @@ struct unwrap
                 wrapped_state->continue_with([=]() mutable {
                     try
                     {
-                        s->set_value(wrapped_state->get().get());
-                    }
-                    catch(...)
-                    {
-                        s->set_exception(std::current_exception());
-                    }
-                });
-            }
-            catch(...)
-            {
-                s->set_exception(std::current_exception());
-            }
-        });
-        return std::move(f);
-    }
-    
-    inline future<void> operator()(future<future<void>>&& other) const
-    {
-        if (!other.valid())
-            throw std::future_error(std::future_errc::no_state);
-        
-        auto other_state = other.get_state(detail::use_private_interface);
-        future<void> f(detail::use_private_interface, other_state->await_queue);
-        auto s = f.get_state(detail::use_private_interface);
-        
-        other.then([=](future<future<void>> ff) {
-            auto wrapped_state = ff.get_state(detail::use_private_interface);
-            
-            try
-            {
-                ff.get(); // throws
-                wrapped_state->continue_with([=]() mutable {
-                    try
-                    {
-                        wrapped_state->get().get();
+                        get_and_set_value(*s, wrapped_state->get());
                     }
                     catch(...)
                     {
