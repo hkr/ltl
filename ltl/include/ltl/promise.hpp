@@ -83,7 +83,7 @@ public:
     
     void swap(promise& other) LTL_NOEXCEPT
     {
-        state_swap(other.state_);
+        state_.swap(other.state_);
         std::swap(retrieved_, other.retrieved_);
     }
     
