@@ -149,7 +149,8 @@ struct unwrap
         auto s = f.get_state(detail::use_private_interface);
         
         other.then([=](future<future<T>> ff) mutable {
-            auto wrapped_state = ff.get_state(detail::use_private_interface);
+            auto f = ff.get_state(detail::use_private_interface)->get();
+            auto wrapped_state = f.get_state(detail::use_private_interface);
             
             try
             {
@@ -157,7 +158,7 @@ struct unwrap
                 wrapped_state->continue_with([=]() mutable {
                     try
                     {
-                        get_and_set_value(*s, wrapped_state->get());
+                        get_and_set_value(*s, f);
                     }
                     catch(...)
                     {
