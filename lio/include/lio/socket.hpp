@@ -21,7 +21,7 @@ public:
     socket(socket const&) =delete;
     socket& operator=(socket const&) =delete;
     
-    void close();
+    ltl::future<void> close();
     
     ltl::future<void> write(void const* data, std::size_t size);
     

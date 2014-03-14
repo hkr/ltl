@@ -22,6 +22,7 @@ struct server::impl
         auto bind_addr = uv_ip4_addr(ip, port);
         uv_tcp_bind(&server_, bind_addr);
         int r = uv_listen((uv_stream_t*) &server_, 128, &connection);
+        // TODO
     }
     
     static void connection(uv_stream_t* server, int status)
@@ -31,6 +32,12 @@ struct server::impl
     
     void connection_established(int status)
     {
+        if (status)
+        {
+            on_connection_(std::shared_ptr<socket>()); // TODO
+            return;
+        }
+        
         auto client = std::make_shared<uv_tcp_t>();
         uv_tcp_init(loop_.get(), client.get());
         
