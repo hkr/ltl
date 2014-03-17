@@ -118,6 +118,9 @@ public:
     {
         {
             std::lock_guard<std::mutex> lock(mutex_);
+            if (exception_)
+                return;
+            
             if (auto x = get_value(value_))
                 return;
             
