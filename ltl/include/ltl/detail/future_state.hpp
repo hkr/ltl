@@ -91,22 +91,17 @@ struct add_continuation<T, void>
 };
 
 template <typename T>
-struct future_state_base : std::enable_shared_from_this<future_state_base<T>>
+class future_state_base : public std::enable_shared_from_this<future_state_base<T>>
 {
+public:
     typedef typename std::conditional<std::is_void<T>::value, bool, std::unique_ptr<T>>::type ValueHolder;
     typedef std::deque<std::function<void()>> continuations_container;
     typedef std::shared_ptr<detail::task_queue_impl> await_queue_type;
     
-    mutable std::mutex mutex;
-    ValueHolder value;
-    continuations_container continuations;
-    await_queue_type await_queue;
-    std::unique_ptr<detail::block> block;
-    std::exception_ptr exception;
-    
+public:
     explicit future_state_base(await_queue_type const& tq)
-    : value()
-    , await_queue(tq)
+    : value_()
+    , await_queue_(tq)
     {
     }
     
@@ -115,25 +110,25 @@ struct future_state_base : std::enable_shared_from_this<future_state_base<T>>
 
     bool ready() const
     {
-        std::lock_guard<std::mutex> lock(mutex);
-        return value || exception;
+        std::lock_guard<std::mutex> lock(mutex_);
+        return value_ || exception_;
     }
     
     void wait()
     {
         {
-            std::lock_guard<std::mutex> lock(mutex);
-            if (auto x = get_value(value))
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (auto x = get_value(value_))
                 return;
             
-            if (!block)
+            if (!block_)
             {
-                block.reset(new detail::block());
-                continuations.push_back(std::bind(&detail::block::signal, block.get()));
+                block_.reset(new detail::block());
+                continuations_.push_back(std::bind(&detail::block::signal, block_.get()));
             }
         }
         
-        block->wait();
+        block_->wait();
     }
     
     template <typename Future, typename Function>
@@ -143,10 +138,10 @@ struct future_state_base : std::enable_shared_from_this<future_state_base<T>>
         auto&& rs = fr.get_state(detail::use_private_interface);
         
         {
-            std::lock_guard<std::mutex> lock(mutex);
-            if (!value && !exception)
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (!value_ && !exception_)
             {
-                add_continuation<T, typename Future::value_type>()(continuations, rs, std::forward<Function>(func));
+                add_continuation<T, typename Future::value_type>()(continuations_, rs, std::forward<Function>(func));
                 return fr;
             }
         }
@@ -159,10 +154,10 @@ struct future_state_base : std::enable_shared_from_this<future_state_base<T>>
     void continue_with(Function&& func)
     {
         {
-            std::lock_guard<std::mutex> lock(mutex);
-            if (!value && !exception)
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (!value_ && !exception_)
             {
-                continuations.emplace_back([=]() mutable {
+                continuations_.emplace_back([=]() mutable {
                     func(); // TODO: handle exception
                 });
                 return;
@@ -173,10 +168,23 @@ struct future_state_base : std::enable_shared_from_this<future_state_base<T>>
     
     void set_exception(std::exception_ptr p)
     {
-        std::lock_guard<std::mutex> lock(mutex);
-        if (value || exception) throw std::future_error(std::future_errc::promise_already_satisfied);
-        exception = std::move(p);
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (value_ || exception_) throw std::future_error(std::future_errc::promise_already_satisfied);
+        exception_ = std::move(p);
     }
+    
+    await_queue_type await_queue() const
+    {
+        return await_queue_;
+    }
+    
+protected:
+    mutable std::mutex mutex_;
+    ValueHolder value_;
+    continuations_container continuations_;
+    await_queue_type await_queue_;
+    std::unique_ptr<detail::block> block_;
+    std::exception_ptr exception_;
     
 protected:
     ~future_state_base() {}
@@ -201,15 +209,15 @@ struct future_state : future_state_base<T>
     {
         continuations_container cs;
         {
-            std::lock_guard<std::mutex> lock(this->mutex);
-            if (this->value || this->exception)
+            std::lock_guard<std::mutex> lock(this->mutex_);
+            if (this->value_ || this->exception_)
             {
                 if (allow_exception) throw std::future_error(std::future_errc::promise_already_satisfied);
                 return;
             }
             
-            this->value.reset(new T(std::forward<U>(v)));
-            cs.swap(this->continuations);
+            this->value_.reset(new T(std::forward<U>(v)));
+            cs.swap(this->continuations_);
         }
         
         for(auto&& f : cs)
@@ -225,8 +233,8 @@ struct future_state : future_state_base<T>
 	T const& get() const
 	{
 		// no lock required because value does not change once it's set
-        if (this->exception) std::rethrow_exception(this->exception);
-		return *get_value(this->value);
+        if (this->exception_) std::rethrow_exception(this->exception_);
+		return *get_value(this->value_);
 	}
 };
     
@@ -245,22 +253,22 @@ struct future_state<void> : future_state_base<void>
     
 	void get() const
 	{
-        if (this->exception) std::rethrow_exception(this->exception);
+        if (this->exception_) std::rethrow_exception(this->exception_);
 	}
 
     void set_value_impl(bool allow_exception)
     {
         continuations_container cs;
         {
-            std::lock_guard<std::mutex> lock(mutex);
-            if (value || this->exception)
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (value_ || this->exception_)
             {
                 if (allow_exception) throw std::future_error(std::future_errc::promise_already_satisfied);
                 return;
             }
             
-            this->value = true;
-            cs.swap(continuations);
+            this->value_ = true;
+            cs.swap(continuations_);
         }
         
         for(auto&& f : cs)

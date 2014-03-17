@@ -35,7 +35,7 @@ struct await_value
         auto s = f.get_state(detail::use_private_interface);
         
         s->continue_with([&]() {
-            s->await_queue->push_front([=]() {
+            s->await_queue()->push_front([=]() {
                 resume_task();
             });
         });
@@ -64,7 +64,7 @@ struct await_value
         auto s = f.get_state(detail::use_private_interface);
         
         s->continue_with([&]() {
-            s->await_queue->push_front([=]() {
+            s->await_queue()->push_front([=]() {
                 resume_task();
             });
         });

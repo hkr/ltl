@@ -145,7 +145,7 @@ struct unwrap
             throw std::future_error(std::future_errc::no_state);
         
         auto other_state = other.get_state(detail::use_private_interface);
-        future<T> f(detail::use_private_interface, other.get_state(detail::use_private_interface)->await_queue);
+        future<T> f(detail::use_private_interface, other.get_state(detail::use_private_interface)->await_queue());
         auto s = f.get_state(detail::use_private_interface);
         
         other.then([=](future<future<T>> ff) mutable {
