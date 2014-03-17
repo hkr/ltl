@@ -8,6 +8,8 @@
 #include <iostream>
 #include <stdio.h>
 
+#include <unistd.h>
+
 namespace {
     ltl::task_queue server_tq;
     ltl::task_queue client_tq;
@@ -38,6 +40,10 @@ int main(int argc, char** argv)
     client_iomgr = lio::iomanager::create("client");
     auto third_iomgr = lio::iomanager::create("third");
     
+    third_iomgr->run();
+    client_iomgr->run();
+    server_iomgr->run();
+    
     std::shared_ptr<lio::server> srv = server_iomgr->create_server("0.0.0.0", 12345, [](std::shared_ptr<lio::socket> const& s){
         printf("server: client connected\n");
         server_tq.push_back_resumable([=](){
@@ -49,37 +55,23 @@ int main(int argc, char** argv)
         });
     }).get();
     
-    std::thread clients([](){
-        for (int i = 0; i < 1; ++i)
-        {
-            client_tq.push_back_resumable([](){
-                printf("client: trying to connect\n");
-                std::shared_ptr<lio::socket> s = ltl::await |= client_iomgr->connect("127.0.0.1", 12345);
-                printf("client: connected\n");
-                write(s, "Hello World0");
-                write(s, "Hello World1");
-                write(s, "Hello World2");
-                write(s, "Hello World3");
-            });
-        }
-        
+
+    for (int i = 0; i < 20; ++i)
+    {
         client_tq.push_back_resumable([](){
-            //   server_iomgr->stop();
-            //client_iomgr->stop();
+            printf("client: trying to connect\n");
+            std::shared_ptr<lio::socket> s = ltl::await |= client_iomgr->connect("127.0.0.1", 12345);
+            printf("client: connected\n");
+            write(s, "Hello World0");
+            write(s, "Hello World1");
+            write(s, "Hello World2");
+            write(s, "Hello World3");
         });
-    });
+    }
     
-    printf("joining clients\n");
-    clients.join();
+    usleep(100000000);
+
    
-    third_iomgr->run();
-    client_iomgr->run().wait();
-    server_iomgr->run().wait();
-    //.wait();
-    
-    
-    
-    
     printf("leaving main\n");
     
 	return 0;

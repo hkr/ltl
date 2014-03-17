@@ -1,7 +1,7 @@
 #ifndef LIO_SOCKET_HPP
 #define LIO_SOCKET_HPP
 
-#include "ltl/forward_declarations.hpp"
+#include "ltl/future.hpp"
 
 #include <memory>
 #include <stdint.h>
@@ -23,13 +23,20 @@ public:
     
     ltl::future<void> close();
     
-    ltl::future<void> write(void const* data, std::size_t size);
+    ltl::future<void> write(std::vector<uint8_t> const& data);
+    
+    template <typename Byte>
+    ltl::future<void> write(Byte const* data, size_t size)
+    {
+        auto d = reinterpret_cast<uint8_t const*>(data);
+        return write(std::vector<uint8_t>(d, d + size));
+    }
     
     ltl::future<std::vector<uint8_t>> read(std::size_t size);
     
 private:
     struct impl;
-    std::unique_ptr<impl> impl_;
+    std::shared_ptr<impl> impl_;
 };
     
 } // namespace lio

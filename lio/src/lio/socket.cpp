@@ -55,15 +55,11 @@ struct socket::impl
     , write_queue_()
     , loop_(static_cast<iomanager*>(tcp->loop->data)->get_loop())
     , tcp_(tcp)
+    , manager_(static_cast<iomanager*>(tcp->loop->data))
     {
         tcp_->data = this;
     }
-    
-    ~impl()
-    {
-        close();
-    }
-    
+   
     static uv_buf_t alloc_read(uv_handle_t* handle, size_t suggested_size)
     {
         return static_cast<impl*>(handle->data)->on_alloc_read(handle, suggested_size);
@@ -143,13 +139,12 @@ struct socket::impl
         return read_queue_.back().promise.get_future();
     }
     
-    ltl::future<void> write(void const* data, std::size_t size)
+    ltl::future<void> write(std::vector<uint8_t> data)
     {
         write_request req;
-        req.data.assign(static_cast<std::uint8_t const*>(data),
-                        static_cast<std::uint8_t const*>(data) + size);
+        req.data = std::move(data);
         
-        req.buf.len = size;
+        req.buf.len = req.data.size();
         req.buf.base = reinterpret_cast<char*>(req.data.data());
         
         write_queue_.push_back(std::move(req));
@@ -179,50 +174,49 @@ struct socket::impl
     void close()
     {
         if (!tcp_)
-            return;
+           return;
         
-        uv_close((uv_handle_t*) tcp_.get(), nullptr);
-        tcp_.reset();
+        //uv_close((uv_handle_t*) tcp_.get(), nullptr);
+        //tcp_.reset();
     }
     
     impl(impl const&) = delete;
     impl& operator=(impl const&) = delete;
     
-    ltl::task_queue& get_queue()
-    {
-        return static_cast<iomanager*>(loop_->data)->get_queue();
-    }
-    
     std::deque<read_request> read_queue_;
     std::deque<write_request> write_queue_;
     std::shared_ptr<uv_loop_t> loop_;
     std::shared_ptr<uv_tcp_t> tcp_;
+    iomanager* manager_;
 };
 
 socket::socket(std::shared_ptr<uv_tcp_s> const& tcp)
-: impl_(new impl(tcp))
+: impl_(std::make_shared<impl>(tcp))
 {
     
 }
     
 socket::~socket()
 {
-    
+    close();
 }
 
-ltl::future<void> socket::write(void const* data, std::size_t size)
+ltl::future<void> socket::write(std::vector<uint8_t> const& data)
 {
-    return impl_->get_queue().push_back([=](){ return impl_->write(data, size); }).unwrap();
+    auto i = impl_;
+    return impl_->manager_->execute([=]() mutable { return i->write(data); }).unwrap();
 }
     
 ltl::future<std::vector<uint8_t>> socket::read(std::size_t size)
 {
-    return impl_->get_queue().push_back([=](){ return impl_->read(size); }).unwrap();
+    auto i = impl_;
+    return impl_->manager_->execute([=](){ return i->read(size); }).unwrap();
 }
     
 ltl::future<void> socket::close()
 {
-    return impl_->get_queue().push_back([=](){ impl_->close(); });
+    auto i = impl_;
+    return impl_->manager_->execute([=](){ i->close(); });
 }
-    
+        
 } // namespace lio

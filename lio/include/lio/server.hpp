@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <functional>
+#include <String>
 
 namespace lio {
     
@@ -15,7 +16,7 @@ class server
 {
 public:
     explicit server(std::shared_ptr<iomanager> const& x,
-                    char const* ip, int port,
+                    std::string const& ip, int port,
                     std::function<void(std::shared_ptr<socket> const&)> on_connection);
     ~server();
     server(server&& other);

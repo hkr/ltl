@@ -11,7 +11,7 @@ namespace lio {
 struct server::impl
 {
     explicit impl(std::shared_ptr<iomanager> const& x,
-                  char const* ip, int port,
+                  std::string const& ip, int port,
                   std::function<void(std::shared_ptr<socket> const&)> on_connection)
     : on_connection_(std::move(on_connection))
     , server_()
@@ -19,7 +19,7 @@ struct server::impl
     {
         uv_tcp_init(loop_.get(), &server_);
         server_.data = this;
-        auto bind_addr = uv_ip4_addr(ip, port);
+        auto bind_addr = uv_ip4_addr(ip.c_str(), port);
         uv_tcp_bind(&server_, bind_addr);
         int r = uv_listen((uv_stream_t*) &server_, 128, &connection);
         // TODO
@@ -71,7 +71,7 @@ struct server::impl
 };
     
 server::server(std::shared_ptr<iomanager> const& x,
-               char const* ip, int port,
+               std::string const& ip, int port,
                std::function<void(std::shared_ptr<socket> const&)> on_connection)
 : impl_(new impl(x, ip, port, std::move(on_connection)))
 {

@@ -5,7 +5,6 @@
 
 #include "ltl/promise.hpp"
 #include "ltl/future.hpp"
-#include "ltl/task_queue.hpp"
 
 #include "uv.h"
 
@@ -47,10 +46,39 @@ struct iomanager::impl
     : back_(ptr)
     , loop_()
     , name_(name ? name : "unnamed")
-    , task_queue_(name_)
+    , async_signal_task_()
+    , thread_()
     {
-        loop_ = task_queue_.push_back([&]() { return make_loop(); }).get();
+        loop_ = make_loop();
         loop_->data = back_;
+        uv_async_init(loop_.get(), &async_signal_task_, async_new_task_cb);
+        async_signal_task_.data = this;
+    }
+    
+    static void async_new_task_cb(uv_async_t* handle, int)
+    {
+        static_cast<impl*>(handle->data)->on_async_new_task();
+    }
+    
+    void on_async_new_task()
+    {
+        while (true)
+        {
+            std::deque<std::function<void()>> tasks;
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                tasks.swap(task_queue_);
+            }
+            
+            if (tasks.empty())
+                return;
+            
+            while (!tasks.empty())
+            {
+                tasks.front()();
+                tasks.pop_front();
+            }
+        }
     }
     
     ~impl()
@@ -91,10 +119,15 @@ struct iomanager::impl
     
     void run()
     {
-        printf("Entered run %s\n", name_);
-        uv_ref((uv_handle_t*)loop_.get());
-        uv_run(loop_.get(), UV_RUN_DEFAULT);
-        printf("Left run %s\n", name_);
+        if (thread_.joinable())
+            return;
+        
+        thread_  = std::thread([&](){
+            printf("Entered run %s\n", name_);
+            uv_run(loop_.get(), UV_RUN_DEFAULT);
+            printf("Left run %s\n", name_);
+        });
+        
     }
     
     void stop()
@@ -103,36 +136,70 @@ struct iomanager::impl
         uv_unref((uv_handle_t*)loop_.get());
     }
     
-    ltl::future<std::shared_ptr<socket>> connect(char const* ip, int port)
+    ltl::future<std::shared_ptr<socket>> connect(std::string const& ip, int port)
     {
         auto req = new connection_request(loop_.get());
         printf("uv_tcp_connect1\n");
-        uv_tcp_connect(&req->conn, req->sock.get(), uv_ip4_addr(ip, port), connection_established);
+        uv_tcp_connect(&req->conn, req->sock.get(), uv_ip4_addr(ip.c_str(), port), connection_established);
         printf("uv_tcp_connect2\n");
         return req->prm.get_future();
     }
     
-    std::shared_ptr<server> create_server(char const* ip, int port, std::function<void(std::shared_ptr<socket> const&)> on_connection)
+    std::shared_ptr<server> create_server(std::string const& ip, int port, std::function<void(std::shared_ptr<socket> const&)> on_connection)
     {
         return std::make_shared<server>(back_->shared_from_this(), ip, port, std::move(on_connection));
+    }
+    
+    void execute(std::function<void()> task)
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        task_queue_.push_back(std::move(task));
+        uv_async_send(&async_signal_task_);
     }
     
     iomanager* const back_;
     std::shared_ptr<uv_loop_s> loop_;
     char const* name_;
-    ltl::task_queue task_queue_;
+    
+    std::mutex mutex_;
+    std::deque<std::function<void()>> task_queue_;
+    uv_async_t async_signal_task_;
+    std::thread thread_;
+    
 };
 
-ltl::future<std::shared_ptr<server>> iomanager::create_server(char const* ip, int port, std::function<void(std::shared_ptr<socket> const&)> on_connection)
+ltl::future<std::shared_ptr<server>> iomanager::create_server(std::string const& ip, int port, std::function<void(std::shared_ptr<socket> const&)> on_connection)
 {
-    return impl_->task_queue_.push_back([=](){ return impl_->create_server(ip, port, std::move(on_connection)); });
+    return execute([=](){
+        return impl_->create_server(ip, port, on_connection);
+    });
 }
     
-ltl::future<std::shared_ptr<socket>> iomanager::connect(char const* ip, int port)
+ltl::future<std::shared_ptr<socket>> iomanager::connect(std::string const& ip, int port)
 {
-    return impl_->task_queue_.push_back([=](){ return impl_->connect(ip, port); }).unwrap();
+    auto promise = std::make_shared<ltl::promise<ltl::future<std::shared_ptr<socket>>>>();
+    execute([=](){
+        promise->set_value(impl_->connect(ip, port));
+    });
+    return promise->get_future().unwrap();
 }
 
+void iomanager::run()
+{
+    return impl_->run();
+}
+
+void iomanager::stop()
+{
+    auto promise = std::make_shared<ltl::promise<void>>();
+    execute([=](){
+        impl_->stop();
+        promise->set_value();
+    });
+    promise->get_future().wait();
+    impl_->thread_.join();
+}
+    
 iomanager::iomanager(char const* name)
 : impl_(new impl(this, name))
 {
@@ -159,19 +226,9 @@ std::shared_ptr<uv_loop_s> iomanager::get_loop()
     return impl_->get_loop();
 }
     
-ltl::future<void> iomanager::run()
+void iomanager::exec(std::function<void()> task)
 {
-    return impl_->task_queue_.push_back([=](){ impl_->run(); });
-}
-    
-ltl::future<void> iomanager::stop()
-{
-    return impl_->task_queue_.push_back([=](){ impl_->stop(); });
-}
-    
-ltl::task_queue& iomanager::get_queue()
-{
-    return impl_->task_queue_;
+    impl_->execute(std::move(task));
 }
     
 } // namespace lio
