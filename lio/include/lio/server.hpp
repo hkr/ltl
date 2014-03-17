@@ -1,11 +1,11 @@
 #ifndef LIO_SERVER_HPP
 #define LIO_SERVER_HPP
 
-#include "ltl/forward_declarations.hpp"
+#include "ltl/future.hpp"
 
 #include <memory>
 #include <functional>
-#include <String>
+#include <string>
 
 namespace lio {
     
@@ -22,11 +22,11 @@ public:
     server(server&& other);
     server& operator=(server&& other);
     
-    void close();
+    ltl::future<void> close();
     
 private:
     struct impl;
-    std::unique_ptr<impl> impl_;
+    std::shared_ptr<impl> impl_;
 };
     
 } // namespace lio

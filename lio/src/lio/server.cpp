@@ -4,6 +4,8 @@
 #include "lio/iomanager.hpp"
 #include "lio/socket.hpp"
 
+#include <assert.h>
+
 #include "uv.h"
 
 namespace lio {
@@ -16,6 +18,8 @@ struct server::impl
     : on_connection_(std::move(on_connection))
     , server_()
     , loop_(x->get_loop())
+    , manager_(x)
+    , closing_(false)
     {
         uv_tcp_init(loop_.get(), &server_);
         server_.data = this;
@@ -54,33 +58,51 @@ struct server::impl
     
     ~impl()
     {
-        close();
     }
     
     impl(impl const&) =delete;
     impl& operator=(impl const&) =delete;
     
-    void close()
+    ltl::future<void> close()
     {
-        uv_close((uv_handle_t*) &server_, nullptr);
+        if (closing_)
+            return ltl::make_ready_future();
+        
+        closing_ = true;
+        uv_close((uv_handle_t*) &server_, close_cb);
+        return closing_promise_.get_future();
+    }
+    
+    static void close_cb(uv_handle_t* handle)
+    {
+        static_cast<impl*>(handle->data)->on_close();
+    }
+    
+    void on_close()
+    {
+        closing_promise_.set_value();
     }
     
     std::function<void(std::shared_ptr<socket> const&)> on_connection_;
     uv_tcp_t server_;
     std::shared_ptr<uv_loop_s> loop_;
+    std::shared_ptr<iomanager> manager_;
+    ltl::promise<void> closing_promise_;
+    bool closing_;
+    
 };
     
 server::server(std::shared_ptr<iomanager> const& x,
                std::string const& ip, int port,
                std::function<void(std::shared_ptr<socket> const&)> on_connection)
-: impl_(new impl(x, ip, port, std::move(on_connection)))
+: impl_(std::make_shared<impl>(x, ip, port, std::move(on_connection)))
 {
     
 }
     
 server::~server()
 {
-    
+    close();
 }
     
 server::server(server&& other)
@@ -95,9 +117,10 @@ server& server::operator=(server&& other)
     return *this;
 }
     
-void server::close()
+ltl::future<void> server::close()
 {
-    impl_->close();
+    auto i = impl_;
+    return impl_->manager_->execute([=](){ return i->close(); }).unwrap();
 }
     
 } // namespace lio

@@ -60,8 +60,6 @@ public:
         return execute_impl<result_type>(std::forward<Function>(task), std::is_void<result_type>());
     }
     
-
-    
 private:
     explicit iomanager(char const* name);
     ~iomanager();

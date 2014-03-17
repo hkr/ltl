@@ -35,8 +35,6 @@ struct task_queue_impl::impl
     , queue_()
     , thread_([&]() {
 		main_context_.reset(create_main_context());
-
-        auto&& work_to_do = [&](){ return !queue_.empty() || join_; };
         
         while (true)
         {
@@ -44,15 +42,12 @@ struct task_queue_impl::impl
             {
                 std::unique_lock<std::mutex> lock(mutex_);
                 
-                if (!work_to_do())
-                {
-                    LTL_LOG("task_queue_impl waiting... %s\n", name_);
-                    cv_.wait(lock, work_to_do);
-                    LTL_LOG("task_queue_impl wakeup %s\n", name_);
-                }
+                if (join_ && in_progress_count_ != 0) LTL_LOG("task_queue_impl wants to join but in_progress_count_ = %d %s\n", in_progress_count_, name_);
                 
                 if (join_ && in_progress_count_ == 0)
                     break;
+                
+                cv_.wait(lock, [&](){ return !queue_.empty() || join_; });
                 
                 if (queue_.empty())
                     continue;

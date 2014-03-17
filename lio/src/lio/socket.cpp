@@ -48,14 +48,15 @@ typedef request<std::vector<std::uint8_t>> read_request;
     
 } // namespace
 
-struct socket::impl
+struct socket::impl : std::enable_shared_from_this<impl>
 {
     explicit impl(std::shared_ptr<uv_tcp_s> const& tcp)
     : read_queue_()
     , write_queue_()
     , loop_(static_cast<iomanager*>(tcp->loop->data)->get_loop())
     , tcp_(tcp)
-    , manager_(static_cast<iomanager*>(tcp->loop->data))
+    , manager_(static_cast<iomanager*>(tcp->loop->data)->shared_from_this())
+    , closing_(false)
     {
         tcp_->data = this;
     }
@@ -103,8 +104,18 @@ struct socket::impl
         
         if (nread < 0)
         {
+            printf("nread %d, error: %d\n", (int)nread, uv_last_error(loop_.get()).code);
+            
+            // try {
             front.promise.set_exception(std::make_exception_ptr(std::exception())); // TODO
+            printf("e done\n");
             done = true;
+            ///}
+            //catch(...)
+            //{
+            //    printf("EEE\n");
+            //}
+       
         }
         else
         {
@@ -171,13 +182,25 @@ struct socket::impl
         write_queue_.pop_front();
     }
     
-    void close()
+    ltl::future<void> close()
     {
-        if (!tcp_)
-           return;
-        
-        //uv_close((uv_handle_t*) tcp_.get(), nullptr);
-        //tcp_.reset();
+        assert(!closing_);
+        closing_ = true;
+        uv_close((uv_handle_t*) tcp_.get(), close_cb);
+        keep_alive_ = shared_from_this();
+        return closing_promise_.get_future();
+    }
+    
+    static void close_cb(uv_handle_t* handle)
+    {
+        static_cast<impl*>(handle->data)->on_close();
+    }
+    
+    void on_close()
+    {
+        tcp_.reset();
+        closing_promise_.set_value();
+        keep_alive_.reset();
     }
     
     impl(impl const&) = delete;
@@ -187,7 +210,11 @@ struct socket::impl
     std::deque<write_request> write_queue_;
     std::shared_ptr<uv_loop_t> loop_;
     std::shared_ptr<uv_tcp_t> tcp_;
-    iomanager* manager_;
+    std::shared_ptr<iomanager> manager_;
+    
+    ltl::promise<void> closing_promise_;
+    std::shared_ptr<impl> keep_alive_;
+    bool closing_;
 };
 
 socket::socket(std::shared_ptr<uv_tcp_s> const& tcp)
@@ -204,7 +231,7 @@ socket::~socket()
 ltl::future<void> socket::write(std::vector<uint8_t> const& data)
 {
     auto i = impl_;
-    return impl_->manager_->execute([=]() mutable { return i->write(data); }).unwrap();
+    return impl_->manager_->execute([=](){ return i->write(data); }).unwrap();
 }
     
 ltl::future<std::vector<uint8_t>> socket::read(std::size_t size)
@@ -216,7 +243,7 @@ ltl::future<std::vector<uint8_t>> socket::read(std::size_t size)
 ltl::future<void> socket::close()
 {
     auto i = impl_;
-    return impl_->manager_->execute([=](){ i->close(); });
+    return impl_->manager_->execute([=](){ return i->close(); }).unwrap();
 }
         
 } // namespace lio

@@ -83,6 +83,8 @@ struct iomanager::impl
     
     ~impl()
     {
+        if (thread_.joinable())
+            thread_.join();
     }
     
     struct connection_request
@@ -139,9 +141,7 @@ struct iomanager::impl
     ltl::future<std::shared_ptr<socket>> connect(std::string const& ip, int port)
     {
         auto req = new connection_request(loop_.get());
-        printf("uv_tcp_connect1\n");
         uv_tcp_connect(&req->conn, req->sock.get(), uv_ip4_addr(ip.c_str(), port), connection_established);
-        printf("uv_tcp_connect2\n");
         return req->prm.get_future();
     }
     
@@ -191,6 +191,9 @@ void iomanager::run()
 
 void iomanager::stop()
 {
+    if (!impl_->thread_.joinable())
+        return;
+    
     auto promise = std::make_shared<ltl::promise<void>>();
     execute([=](){
         impl_->stop();
@@ -208,7 +211,7 @@ iomanager::iomanager(char const* name)
     
 iomanager::~iomanager()
 {
-    
+    stop();
 }
 
 void iomanager::destroy(iomanager* ptr)
