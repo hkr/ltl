@@ -168,9 +168,16 @@ public:
     
     void set_exception(std::exception_ptr p)
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (value_ || exception_) throw std::future_error(std::future_errc::promise_already_satisfied);
-        exception_ = std::move(p);
+        continuations_container cs;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (value_ || exception_) throw std::future_error(std::future_errc::promise_already_satisfied);
+            exception_ = std::move(p);
+            cs.swap(this->continuations_);
+        }
+                
+        for(auto&& f : cs)
+            f();
     }
     
     await_queue_type await_queue() const
