@@ -51,19 +51,25 @@ int main(int argc, char** argv)
     
     std::shared_ptr<lio::server> srv = server_iomgr->create_server("0.0.0.0", 12345, [](std::shared_ptr<lio::socket> const& s){
         server_tq.push_back_resumable([=](){
-            for (int i = 0; i < 4; ++i)
+            for (int i = 0; i < 5; ++i)
             {
-                std::string msg = read(s);
-                std::cout << msg << std::endl;
-                
-                if (msg == terminate_connection)
+                try {
+                    std::string msg = read(s);
+                    std::cout << msg << std::endl;
+                    
+                    if (msg == terminate_connection)
+                    {
+                        block.signal();
+                        return;
+                    }
+                    else
+                    {
+                        ++msgcount;
+                    }
+                    
+                } catch(...)
                 {
-                    block.signal();
                     return;
-                }
-                else
-                {
-                    ++msgcount;
                 }
             }
         });
@@ -74,7 +80,7 @@ int main(int argc, char** argv)
     {
         client_tq.push_back_resumable([=](){
             std::shared_ptr<lio::socket> s = ltl::await |= client_iomgr->connect("127.0.0.1", 12345);         
-            std::string msg("XX-Hello World0");
+            std::string msg("XX-Hello World-0");
             msg[0] = '0' + (char) i / 10;
             msg[1] = '0' + (char) i % 10;
             

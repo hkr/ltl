@@ -104,18 +104,17 @@ struct socket::impl : std::enable_shared_from_this<impl>
         
         if (nread < 0)
         {
-            printf("nread %d, error: %d\n", (int)nread, uv_last_error(loop_.get()).code);
-            
-            // try {
-            front.promise.set_exception(std::make_exception_ptr(std::exception())); // TODO
-            printf("e done\n");
+            // TODO: do we really want an exception on EOF etc.?
+            struct socket_read_error : virtual std::exception
+            {
+                virtual const char* what() const noexcept
+                {
+                    return "socket_read_error";
+                }
+            };
+            uv_read_stop(stream);
+            front.promise.set_exception(std::make_exception_ptr(socket_read_error()));
             done = true;
-            ///}
-            //catch(...)
-            //{
-            //    printf("EEE\n");
-            //}
-       
         }
         else
         {
