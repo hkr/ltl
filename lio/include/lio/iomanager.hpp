@@ -31,21 +31,21 @@ public:
     std::shared_ptr<uv_loop_s> get_loop();
     void exec(std::function<void()> task);
     
-    template <typename R>
-    ltl::future<R> execute_impl(std::function<R()> task, std::false_type)
+    template <typename R, typename Function>
+    ltl::future<R> execute_impl(Function&& task, std::false_type)
     {
         auto promise = std::make_shared<ltl::promise<R>>();
-        exec([=](){
+        exec([=]() mutable {
             promise->set_value(task());
         });
         return promise->get_future();
     }
     
-    template <typename R>
-    ltl::future<R> execute_impl(std::function<R()> task, std::true_type)
+    template <typename R, typename Function>
+    ltl::future<R> execute_impl(Function&& task, std::true_type)
     {
         auto promise = std::make_shared<ltl::promise<R>>();
-        exec([=](){
+        exec([=]() mutable {
             task();
             promise->set_value();
         });

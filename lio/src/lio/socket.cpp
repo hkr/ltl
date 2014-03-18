@@ -149,7 +149,7 @@ struct socket::impl : std::enable_shared_from_this<impl>
         return read_queue_.back().promise.get_future();
     }
     
-    ltl::future<void> write(std::vector<uint8_t> data)
+    ltl::future<void> write(std::vector<uint8_t>&& data)
     {
         write_request req;
         req.data = std::move(data);
@@ -230,11 +230,37 @@ socket::~socket()
         
     }
 }
+    
+namespace {
+    
+template <typename Impl>
+struct write_task
+{
+    std::vector<uint8_t> data;
+    std::shared_ptr<Impl> impl;
+    explicit write_task(std::vector<uint8_t>&& d, std::shared_ptr<Impl> const& i)
+    : data(std::move(d))
+    , impl(i)
+    {
+    }
+    
+    ltl::future<void> operator()()
+    {
+        return impl->write(std::move(data));
+    }
+    
+};
+    
+} // namespace
 
 ltl::future<void> socket::write(std::vector<uint8_t> const& data)
 {
-    auto i = impl_;
-    return impl_->manager_->execute([=](){ return i->write(data); }).unwrap();
+    return write(std::move(data));
+}
+    
+ltl::future<void> socket::write(std::vector<uint8_t>&& data)
+{
+    return impl_->manager_->execute(write_task<impl>(std::move(data), impl_)).unwrap();
 }
     
 ltl::future<std::vector<uint8_t>> socket::read(std::size_t size)

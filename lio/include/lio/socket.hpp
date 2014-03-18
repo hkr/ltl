@@ -24,6 +24,7 @@ public:
     ltl::future<void> close();
     
     ltl::future<void> write(std::vector<uint8_t> const& data);
+    ltl::future<void> write(std::vector<uint8_t>&& data);
     
     template <typename Byte>
     ltl::future<void> write(Byte const* data, size_t size)
