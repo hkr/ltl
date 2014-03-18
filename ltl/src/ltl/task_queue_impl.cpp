@@ -35,8 +35,6 @@ struct task_queue_impl::impl
     , queue_()
     , thread_([&]() {
 		main_context_.reset(create_main_context());
-
-        auto&& work_to_do = [&](){ return !queue_.empty() || join_; };
         
         while (true)
         {
@@ -44,18 +42,12 @@ struct task_queue_impl::impl
             {
                 std::unique_lock<std::mutex> lock(mutex_);
                 
-                if (!work_to_do())
-                {
-                    LTL_LOG("task_queue_impl waiting... %s\n", name_);
-                    cv_.wait(lock, work_to_do);
-                    LTL_LOG("task_queue_impl wakeup %s\n", name_);
-                }
+                cv_.wait(lock, [&](){
+                    return queue_.size() > 0 || join_possible();
+                });
                 
-                if (join_ && in_progress_count_ == 0)
+                if (join_possible())
                     break;
-                
-                if (queue_.empty())
-                    continue;
                 
                 wi.swap(queue_.front());
                 queue_.pop_front();
@@ -86,6 +78,11 @@ struct task_queue_impl::impl
        
     }
 
+    bool join_possible() const
+    {
+        return join_ && in_progress_count_ == 0;
+    }
+    
     void run_in_new_context(std::function<void()>&& func)
     {
         assert(!current_task_context::get());
@@ -112,7 +109,11 @@ struct task_queue_impl::impl
     
     ~impl()
     {
-        join();
+        try {
+            join();
+        } catch (...) {
+            
+        }
     }
     
     void push_back(std::function<void()> task, scheduling_policy sched_policy)
