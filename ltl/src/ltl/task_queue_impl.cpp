@@ -42,15 +42,12 @@ struct task_queue_impl::impl
             {
                 std::unique_lock<std::mutex> lock(mutex_);
                 
-                if (join_ && in_progress_count_ != 0) LTL_LOG("task_queue_impl wants to join but in_progress_count_ = %d %s\n", in_progress_count_, name_);
+                cv_.wait(lock, [&](){
+                    return queue_.size() > 0 || join_possible();
+                });
                 
-                if (join_ && in_progress_count_ == 0)
+                if (join_possible())
                     break;
-                
-                cv_.wait(lock, [&](){ return !queue_.empty() || join_; });
-                
-                if (queue_.empty())
-                    continue;
                 
                 wi.swap(queue_.front());
                 queue_.pop_front();
@@ -81,6 +78,11 @@ struct task_queue_impl::impl
        
     }
 
+    bool join_possible() const
+    {
+        return join_ && in_progress_count_ == 0;
+    }
+    
     void run_in_new_context(std::function<void()>&& func)
     {
         assert(!current_task_context::get());
@@ -107,7 +109,11 @@ struct task_queue_impl::impl
     
     ~impl()
     {
-        join();
+        try {
+            join();
+        } catch (...) {
+            
+        }
     }
     
     void push_back(std::function<void()> task, scheduling_policy sched_policy)
