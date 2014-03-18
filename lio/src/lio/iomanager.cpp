@@ -168,7 +168,8 @@ struct iomanager::impl
     
 };
 
-ltl::future<std::shared_ptr<server>> iomanager::create_server(std::string const& ip, int port, std::function<void(std::shared_ptr<socket> const&)> on_connection)
+ltl::future<std::shared_ptr<server>> iomanager::create_server(std::string const& ip, int port,
+                                                              std::function<void(std::shared_ptr<socket> const&)> const& on_connection)
 {
     return execute([=](){
         return impl_->create_server(ip, port, on_connection);
@@ -194,9 +195,10 @@ void iomanager::stop()
     if (!impl_->thread_.joinable())
         return;
     
+    auto i = impl_;
     auto promise = std::make_shared<ltl::promise<void>>();
     execute([=](){
-        impl_->stop();
+        i->stop();
         promise->set_value();
     });
     promise->get_future().wait();
@@ -204,7 +206,7 @@ void iomanager::stop()
 }
     
 iomanager::iomanager(char const* name)
-: impl_(new impl(this, name))
+: impl_(std::make_shared<impl>(this, name))
 {
     
 }

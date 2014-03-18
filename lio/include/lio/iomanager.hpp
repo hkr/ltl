@@ -20,7 +20,7 @@ public:
     static std::shared_ptr<iomanager> create(char const* name = nullptr);
     
     ltl::future<std::shared_ptr<server>> create_server(std::string const& ip, int port,
-                                                       std::function<void(std::shared_ptr<socket> const&)> on_connection);
+                                                       std::function<void(std::shared_ptr<socket> const&)> const& on_connection);
     
     ltl::future<std::shared_ptr<socket>> connect(std::string const& ip, int port);
     
@@ -69,7 +69,7 @@ private:
     
 private:
     struct impl;
-    std::unique_ptr<impl> impl_;
+    std::shared_ptr<impl> impl_;
 };
     
 } // namespace lio
