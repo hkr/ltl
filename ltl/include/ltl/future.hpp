@@ -10,6 +10,8 @@
 #include "ltl/detail/task_queue_impl.hpp"
 #include "ltl/detail/wrapped_function.hpp"
 #include "ltl/detail/noexcept.hpp"
+#include "ltl/detail/result_of.hpp"
+#include "ltl/detail/get_and_compose.hpp"
 
 namespace ltl {
     
@@ -30,12 +32,36 @@ public:
         return state_ != nullptr;
     }
     
+    // see N3721
     template <typename Function>
     future<typename std::result_of<Function(future<T>)>::type> then(Function&& func)
     {
         if (!state_) throw std::future_error(std::future_errc::no_state);
-        using result_future = future<typename std::result_of<Function(future<T>)>::type> ;
+        using result_future = future<typename std::result_of<Function(future<T>)>::type>;
         return state_->template then<result_future>(std::bind(std::forward<Function>(func), future<T>(detail::use_private_interface, state_)));
+    }
+    
+    // see N3865
+    template <typename Function>
+    future<typename result_of<Function, T>::type> next(Function&& func)
+    {
+        if (!state_) throw std::future_error(std::future_errc::no_state);
+        using result_type = typename result_of<Function, T>::type;
+        using result_future = future<result_type>;
+        using continuation = detail::get_and_compose<result_type, T, Function, std::shared_ptr<state>>;
+        return state_->template then<result_future>(continuation(std::forward<Function>(func), state_));
+    }
+    
+    // see N3865
+    template <typename Function>
+    future recover(Function&& func)
+    {
+        return then([=](future f){
+            if (f.has_value())
+                return f.get();
+            else
+                return func(f.get());
+        });
     }
     
     void swap(future& other) LTL_NOEXCEPT
@@ -43,9 +69,16 @@ public:
         state_swap(other.state_);
     }
     
+    // see N3721
     bool ready() const
     {
         return state_ ? state_->ready() : false;
+    }
+    
+    // see N3865
+    bool has_value() const
+    {
+        return state_ ? state_->has_value() : false;
     }
     
     void wait() const
@@ -67,6 +100,14 @@ public:
         throw std::future_error(std::future_errc::no_state);
     }
     
+    // see N3865
+    template <typename U>
+    U value_or(U&& x)
+    {
+        return has_value() ? get() : x;
+    }
+    
+    // see N3721
     typename std::conditional<is_future<T>::value, T, future<T>>::type unwrap();
     
 private:
@@ -100,6 +141,7 @@ void swap(future<T>& x, future<T>& y) LTL_NOEXCEPT
     x.swap(y);
 }
  
+// see N3721
 template <typename T>
 future<T> make_ready_future(T&& value)
 {
@@ -108,10 +150,20 @@ future<T> make_ready_future(T&& value)
     return std::move(f);
 }
 
+// see N3721
 inline future<void> make_ready_future()
 {
     future<void> f(detail::use_private_interface, detail::promised());
     f.get_state(detail::use_private_interface)->set_value();
+    return std::move(f);
+}
+
+// see N3865
+template <typename T, typename E>
+inline future<T> make_exceptional_future(E e)
+{
+    future<T> f(detail::use_private_interface, detail::promised());
+    f.get_state(detail::use_private_interface)->set_exception(std::make_exception_ptr(e));
     return std::move(f);
 }
     

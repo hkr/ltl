@@ -114,6 +114,12 @@ public:
         return value_ || exception_;
     }
     
+    bool has_value() const
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return value_;
+    }
+    
     void wait()
     {
         {
@@ -183,8 +189,15 @@ public:
             f();
     }
     
+    std::exception_ptr get_exception() const
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return exception_;
+    }
+    
     await_queue_type await_queue() const
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         return await_queue_;
     }
     

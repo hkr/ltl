@@ -68,7 +68,7 @@ int main(int argc, char** argv)
     }
     
     ltl::future<void> f = mainQueue.push_back_resumable([](){});
-    f.get();
+    f.next([](){ printf("...\n"); }).wait();
     
     assert(loopCount == 3 * loopEnd);
 
