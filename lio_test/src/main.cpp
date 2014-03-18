@@ -25,7 +25,7 @@ namespace {
     void write(std::shared_ptr<lio::socket> const& s, std::string const& data)
     {
         size_t size = data.size();
-        ltl::await |= s->write(&size, sizeof(size_t));
+        ltl::await |= s->write(reinterpret_cast<char*>(&size), sizeof(size_t));
         ltl::await |= s->write(data.data(), size);
     }
     

@@ -28,6 +28,7 @@ public:
     template <typename Byte>
     ltl::future<void> write(Byte const* data, size_t size)
     {
+        static_assert(sizeof(Byte) == 1, "size mismatch");
         auto d = reinterpret_cast<uint8_t const*>(data);
         return write(std::vector<uint8_t>(d, d + size));
     }
