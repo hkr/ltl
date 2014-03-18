@@ -224,7 +224,11 @@ socket::socket(std::shared_ptr<uv_tcp_s> const& tcp)
     
 socket::~socket()
 {
-    close();
+    try {
+        close();
+    } catch(...) {
+        
+    }
 }
 
 ltl::future<void> socket::write(std::vector<uint8_t> const& data)

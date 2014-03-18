@@ -211,7 +211,11 @@ iomanager::iomanager(char const* name)
     
 iomanager::~iomanager()
 {
-    stop();
+    try {
+        stop();
+    } catch(...) {
+        
+    }
 }
 
 void iomanager::destroy(iomanager* ptr)

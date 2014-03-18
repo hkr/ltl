@@ -102,7 +102,11 @@ server::server(std::shared_ptr<iomanager> const& x,
     
 server::~server()
 {
-    close();
+    try {
+        close();
+    } catch(...) {
+        
+    }
 }
     
 server::server(server&& other)
